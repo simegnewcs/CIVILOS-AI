@@ -358,7 +358,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
               {(["stage", "floor", "info"] as const).map((v) => (
                 <button key={v} onClick={() => setView(v as "floor" | "info" | "stage")}
                   style={{ background: view === v ? "var(--cyan)" : "var(--bg-hover)", color: view === v ? "#000" : "var(--text-secondary)", border: "none", borderRadius: 7, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  {v === "stage" ? "Stage Detail" : v === "floor" ? "Floor Plan" : "Project Info"}
+                  {v === "stage" ? "Stage Detail" : v === "floor" ? "3D Render" : "Project Info"}
                 </button>
               ))}
               {aiOptions.length > 0 && view === "floor" && (
@@ -577,19 +577,28 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
                       <div className="relative border border-cyan/40 rounded-lg overflow-hidden bg-black shadow-2xl shadow-cyan/20">
                         <img src={`data:image/jpeg;base64,${floorPlanImage}`} alt="Generated Floor Plan" style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain" }} />
                         <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, padding: 8, background: "var(--bg-panel)", borderTop: "1px solid var(--border)" }}>
-                          AI Generated Architectural Blueprint (Gemini API)
+                          AI Generated 3D Photorealistic Render (Gemini API)
+                        </div>
+                        <div className="flex justify-center p-3" style={{ background: "var(--bg-panel)" }}>
+                          <button 
+                            onClick={generateFloorPlanImage} 
+                            disabled={generatingImage}
+                            style={{ background: "transparent", color: "var(--cyan)", border: "1px solid var(--cyan)", borderRadius: 8, padding: "6px 14px", fontWeight: 600, fontSize: 12, cursor: generatingImage ? "not-allowed" : "pointer" }}
+                          >
+                            {generatingImage ? "✨ Rendering..." : "🔄 Regenerate 3D Photo"}
+                          </button>
                         </div>
                       </div>
                     ) : aiRooms.length > 0 ? (
                       <div className="flex flex-col items-center">
                         <FloorPlanSVG rooms={aiRooms} />
-                        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, marginTop: 8, marginBottom: 16 }}>AI Generated Floor Plan · Abstract SVG Demo</div>
+                        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, marginTop: 8, marginBottom: 16 }}>Abstract SVG Floor Plan Demo</div>
                         <button 
                           onClick={generateFloorPlanImage} 
                           disabled={generatingImage}
                           style={{ background: "var(--cyan)", color: "#000", border: "none", borderRadius: 8, padding: "8px 20px", fontWeight: 700, fontSize: 13, cursor: generatingImage ? "not-allowed" : "pointer", boxShadow: "0 4px 12px rgba(0, 198, 224, 0.3)" }}
                         >
-                          {generatingImage ? "✨ Generating with Gemini..." : "✨ Generate Real Image with Gemini API"}
+                          {generatingImage ? "✨ Rendering Photorealistic 3D Photo..." : "✨ Generate Photorealistic 3D Photo"}
                         </button>
                       </div>
                     ) : (
