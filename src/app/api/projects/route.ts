@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
           totalMin: cost.summary.totalMin,
           totalMax: cost.summary.totalMax,
           currency: cost.summary.currency,
-          boqJson: JSON.stringify(cost.boq),
+          labour: cost.summary.labourCost,
         },
       });
 
