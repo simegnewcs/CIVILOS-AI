@@ -17,6 +17,7 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.18.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.3",

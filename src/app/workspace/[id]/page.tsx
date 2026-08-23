@@ -126,6 +126,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   const [submitting, setSubmitting] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
   const [selectedOption, setSelectedOption] = useState("A");
+  const [generatingImage, setGeneratingImage] = useState(false);
 
   const fetchProject = useCallback(async () => {
     setLoading(true);
@@ -165,10 +166,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   // Parse AI output for floor plan
   let aiRooms: Room[] = [];
   let aiOptions: { id: string; label: string; styleTag: string }[] = [];
+  let floorPlanImage = "";
   const aiStage = project?.stages.find((s) => s.stageType === "AI_ARCHITECT" && s.aiOutput);
   if (aiStage?.aiOutput) {
     try {
       const parsed = JSON.parse(aiStage.aiOutput);
+      floorPlanImage = parsed.floorPlanImage || "";
       const opts = parsed.options || [];
       aiOptions = opts.map((o: { id: string; label: string; styleTag: string }) => ({ id: o.id, label: o.label, styleTag: o.styleTag }));
       const chosen = opts.find((o: { id: string }) => o.id === selectedOption) || opts[0];
@@ -211,6 +214,28 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
       setComment("");
       await fetchProject();
     } finally { setSubmitting(false); }
+  }
+
+  async function generateFloorPlanImage() {
+    if (!project) return;
+    setGeneratingImage(true);
+    try {
+      const res = await fetch("/api/ai/generate-floorplan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: project.id }),
+      });
+      if (res.ok) {
+        await fetchProject();
+      } else {
+        const err = await res.json();
+        alert("Failed to generate image: " + err.error);
+      }
+    } catch (e) {
+      alert("Network error.");
+    } finally {
+      setGeneratingImage(false);
+    }
   }
 
   // Flatten all comments from all stages, sorted newest first
@@ -540,19 +565,33 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
 
               {/* ── FLOOR PLAN ── */}
               {view === "floor" && (
-                <div className="flex-1 flex items-center justify-center p-6 relative" style={{ minHeight: "100%", background: "#080f18" }}>
+                <div className="flex-1 flex flex-col items-center justify-center p-6 relative" style={{ minHeight: "100%", background: "#080f18" }}>
                   <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.08 }}>
                     <defs><pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
                       <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#00c6e0" strokeWidth="0.5" />
                     </pattern></defs>
                     <rect width="100%" height="100%" fill="url(#grid)" />
                   </svg>
-                  <div style={{ position: "relative" }}>
-                    {aiRooms.length > 0 ? (
-                      <>
+                  <div style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    {floorPlanImage ? (
+                      <div className="relative border border-cyan/40 rounded-lg overflow-hidden bg-black shadow-2xl shadow-cyan/20">
+                        <img src={`data:image/jpeg;base64,${floorPlanImage}`} alt="Generated Floor Plan" style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain" }} />
+                        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, padding: 8, background: "var(--bg-panel)", borderTop: "1px solid var(--border)" }}>
+                          AI Generated Architectural Blueprint (Gemini API)
+                        </div>
+                      </div>
+                    ) : aiRooms.length > 0 ? (
+                      <div className="flex flex-col items-center">
                         <FloorPlanSVG rooms={aiRooms} />
-                        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, marginTop: 8 }}>AI Generated Floor Plan · Ground Floor</div>
-                      </>
+                        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, marginTop: 8, marginBottom: 16 }}>AI Generated Floor Plan · Abstract SVG Demo</div>
+                        <button 
+                          onClick={generateFloorPlanImage} 
+                          disabled={generatingImage}
+                          style={{ background: "var(--cyan)", color: "#000", border: "none", borderRadius: 8, padding: "8px 20px", fontWeight: 700, fontSize: 13, cursor: generatingImage ? "not-allowed" : "pointer", boxShadow: "0 4px 12px rgba(0, 198, 224, 0.3)" }}
+                        >
+                          {generatingImage ? "✨ Generating with Gemini..." : "✨ Generate Real Image with Gemini API"}
+                        </button>
+                      </div>
                     ) : (
                       <div className="text-center" style={{ color: "var(--text-muted)" }}>
                         <div className="text-5xl mb-3">🏗️</div>
