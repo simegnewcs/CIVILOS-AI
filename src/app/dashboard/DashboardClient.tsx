@@ -300,7 +300,10 @@ export default function DashboardClient({ initialProjects, userName }: Dashboard
           <div className="bg-card border border-border rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 bg-card z-10 rounded-t-2xl">
               <div>
-                <div className="font-bold text-base">New Project</div>
+                <div className="font-bold text-base flex items-center gap-3">
+                  New Project
+                  <button type="button" onClick={() => { setPName("Luxury Villa - Bole"); setPClient("Abebe Kebede"); setPLocation("Bole, Addis Ababa"); setPPlot("500m²"); setPType("Residential"); setPMode("AI_DRAFT"); setPDesc("A luxurious 3-story modern residential villa with large glass windows, a rooftop terrace, and a spacious living room. Needs a high-end 3D exterior render."); }} className="bg-cyan/10 text-cyan text-[10px] px-2 py-1 rounded-md border border-cyan/20 hover:bg-cyan/20 transition-colors cursor-pointer">✨ Autofill Demo</button>
+                </div>
                 <div className="text-xs mt-0.5 text-text-muted">
                   Create a project and start the AI workflow
                 </div>
