@@ -61,16 +61,63 @@ function buildGrid(rooms: Room[]): GridRoom[] {
 // ── Technical Architectural Floor Plan ──────────────────────────────────────
 
 function AiDrawing({ title, subtitle, prompt, seed }: { title: string; subtitle: string; prompt: string; seed: number }) {
-  const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=768&nologo=true&seed=${seed}`;
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=768&nologo=true&seed=${seed}`;
+    
+    const loadImage = async (retries = 5, delay = 1000 + Math.random() * 2000) => {
+      try {
+        const res = await fetch(url);
+        if (res.status === 429) {
+          if (retries > 0) {
+            setTimeout(() => { if (active) loadImage(retries - 1, delay + 1500); }, delay);
+            return;
+          }
+        }
+        if (res.ok) {
+          const blob = await res.blob();
+          if (active) {
+            setImgSrc(URL.createObjectURL(blob));
+            setLoading(false);
+          }
+        } else {
+          if (active) setLoading(false);
+        }
+      } catch (err) {
+        if (active && retries > 0) {
+          setTimeout(() => loadImage(retries - 1, delay + 1500), delay);
+        } else if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadImage();
+    return () => { active = false; };
+  }, [prompt, seed]);
+
   return (
     <div style={{ background: "#0a0f1a", border: "1px solid #1e293b", borderRadius: 12, overflow: "hidden", marginBottom: 24 }}>
       <div style={{ padding: "10px 16px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "#00c6e0" }}>{title}</span>
         <span style={{ fontSize: 10, color: "#4a6480" }}>{subtitle}</span>
       </div>
-      <div style={{ position: "relative", width: "100%", height: 500, background: "#000" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imgUrl} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <div style={{ position: "relative", width: "100%", height: 500, background: "#050810", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {loading && (
+          <div style={{ color: "#00c6e0", fontSize: 12, fontWeight: 600, letterSpacing: 2, animation: "pulse 2s infinite" }}>
+            GENERATING AI VISUAL...
+          </div>
+        )}
+        {imgSrc && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={imgSrc} alt={title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: loading ? 0 : 1, transition: "opacity 0.5s ease-in" }} />
+        )}
+        {!loading && !imgSrc && (
+          <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 600 }}>ERROR GENERATING IMAGE</div>
+        )}
       </div>
     </div>
   );
