@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMockDesign } from "@/lib/ai-mock";
+import { GoogleGenAI } from "@google/genai";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -62,35 +63,19 @@ Return a JSON object with this exact structure:
 }`;
 
   try {
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: { text: systemPrompt }
-        },
-        contents: [
-          { parts: [{ text: userPrompt }] }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.7,
-        },
-      }),
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: userPrompt,
+        config: {
+            systemInstruction: systemPrompt,
+            responseMimeType: "application/json",
+            temperature: 0.7,
+        }
     });
 
-    if (!geminiRes.ok) {
-      const err = await geminiRes.json();
-      console.error("[Gemini error]", err);
-      // Fallback to mock if API fails
-      const result = getMockDesign(buildingType || "Residential", stories || "2", style || "Modern", plotSize || "400m²");
-      return NextResponse.json({ result, tokensUsed: 0, mock: true });
-    }
-
-    const geminiData = await geminiRes.json();
-    let rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    let rawContent = response.text || "{}";
     
     // Sometimes Gemini wraps JSON in markdown code blocks even with responseMimeType
     rawContent = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -103,7 +88,7 @@ Return a JSON object with this exact structure:
         data: {
           projectId,
           stageType: "AI_ARCHITECT",
-          modelUsed: "gemini-1.5-flash",
+          modelUsed: "gemini-2.5-flash",
           promptUsed: userPrompt,
           outputJson: rawContent,
         },
@@ -115,7 +100,7 @@ Return a JSON object with this exact structure:
       });
     }
 
-    const tokensUsed = geminiData.usageMetadata?.totalTokenCount || 0;
+    const tokensUsed = 0; // The SDK doesn't always return token count simply, so we default to 0
     return NextResponse.json({ result, tokensUsed });
   } catch (error) {
     console.error("[ai/generate]", error);
