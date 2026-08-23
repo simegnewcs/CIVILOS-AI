@@ -203,11 +203,11 @@ export default function DashboardClient({ initialProjects, userName }: Dashboard
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={\`border rounded-lg px-3 py-1 text-xs font-semibold transition-colors \${
+                    className={`border rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
                       filter === f
                         ? "bg-cyan text-black border-cyan"
                         : "bg-card text-text-secondary border-border hover:bg-hover"
-                    }\`}
+                    }`}
                   >
                     {f}
                   </button>
@@ -241,7 +241,7 @@ export default function DashboardClient({ initialProjects, userName }: Dashboard
                   const statusColor = STATUS_COLOR[p.status] || "#4a6480";
                   const statusLabel = p.status.replace("_", " ");
                   return (
-                    <Link key={p.id} href={\`/workspace/\${p.id}\`}>
+                    <Link key={p.id} href={`/workspace/${p.id}`}>
                       <div className="bg-card border border-border rounded-xl p-5 hover:border-cyan hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group h-full flex flex-col justify-between">
                         <div>
                           <div className="flex items-start justify-between mb-3">
@@ -254,7 +254,7 @@ export default function DashboardClient({ initialProjects, userName }: Dashboard
                               </div>
                             </div>
                             <span
-                              style={{ background: typeColor + "15", color: typeColor, border: \`1px solid \${typeColor}33\` }}
+                              style={{ background: typeColor + "15", color: typeColor, border: `1px solid ${typeColor}33` }}
                               className="rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide"
                             >
                               {p.projectType}
@@ -270,14 +270,14 @@ export default function DashboardClient({ initialProjects, userName }: Dashboard
                             <div className="bg-panel rounded-full h-1.5 overflow-hidden border border-border/50">
                               <div
                                 className="bg-cyan h-full rounded-full transition-all duration-500 ease-out"
-                                style={{ width: \`\${p.progress}%\` }}
+                                style={{ width: `${p.progress}%` }}
                               />
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between mt-auto">
                           <span
-                            style={{ background: statusColor + "15", color: statusColor, border: \`1px solid \${statusColor}33\` }}
+                            style={{ background: statusColor + "15", color: statusColor, border: `1px solid ${statusColor}33` }}
                             className="rounded-md px-2 py-0.5 text-[11px] font-semibold"
                           >
                             {statusLabel}
@@ -397,9 +397,9 @@ export default function DashboardClient({ initialProjects, userName }: Dashboard
                 <button
                   type="submit"
                   disabled={creating}
-                  className={\`flex-[2] text-black border-none rounded-xl py-3 text-[13px] font-bold transition-all \${
+                  className={`flex-[2] text-black border-none rounded-xl py-3 text-[13px] font-bold transition-all ${
                     creating ? "bg-cyan-dim cursor-not-allowed opacity-70" : "bg-cyan cursor-pointer hover:opacity-90 shadow-lg shadow-cyan/20"
-                  }\`}
+                  }`}
                 >
                   {creating ? (
                     <span className="flex items-center justify-center gap-2">
