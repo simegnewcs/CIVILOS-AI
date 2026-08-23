@@ -1015,89 +1015,28 @@ function Iso3DView({ rooms, stories, styleTag }: { rooms: Room[]; stories: numbe
 }
 
 // ── Real Construction - Finished House Visual ────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function RealConstructionView({ rooms, stories, styleTag }: { rooms: Room[]; stories: number; styleTag: string }) {
-  const isModern = styleTag?.toLowerCase().includes("modern") || styleTag?.toLowerCase().includes("contemporary");
-  const hasGarage = rooms.some(r => r.name.toLowerCase().includes("garage"));
-  const hasBalcony = rooms.some(r => r.name.toLowerCase().includes("balcony"));
-
-  // Rotation state
-  const [rotY, setRotY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, rot: 0 });
-
-  const W = 720, H = 520;
-  const cx = 360, cy = 380;
-
-  // Colors for real construction materials
-  const colors = {
-    wall: isModern ? "#c9a87c" : "#d4b896",      // Real brick/stucco
-    wallSide: isModern ? "#b89b6b" : "#c4a582",    // Darker side face
-    wallTop: isModern ? "#a88b5b" : "#b49472",     // Top face
-    roof: isModern ? "#2d3436" : "#8b4513",        // Modern dark flat / Traditional terracotta
-    roofSide: isModern ? "#1a1e20" : "#654321",
-    window: "#1a252f",                               // Dark glass
-    windowReflect: "#2a3a4a",                       // Reflection
-    door: "#4a3728",                                 // Wood
-    doorFrame: "#5c4a3d",
-    balcony: "#e8e8e8",                              // Concrete
-    garage: "#3d3d3d",                               // Dark garage door
-    ground: "#3d5c3d",                               // Grass/landscaping
-    groundShadow: "#2d4a2d",
-  };
-
-  // Isometric projection with rotation
-  const SX = 26, SY = 13;
-  const SH = 32;
-
-  function iso(gx: number, gy: number, gz: number) {
-    // Apply Y rotation
-    const cosR = Math.cos(rotY);
-    const sinR = Math.sin(rotY);
-    const rx = gx * cosR - gy * sinR;
-    const ry = gx * sinR + gy * cosR;
-    return {
-      x: cx + (rx - ry) * SX,
-      y: cy + (rx + ry) * SY - gz * SH,
-    };
-  }
-
-  // Mouse handlers for rotation
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, rot: rotY });
-  };
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const deltaX = e.clientX - dragStart.x;
-    const sensitivity = 0.01;
-    setRotY(dragStart.rot + deltaX * sensitivity);
-  };
-  const handleMouseUp = () => setIsDragging(false);
-  const handleMouseLeave = () => setIsDragging(false);
-
-  // Touch handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    setIsDragging(true);
-    setDragStart({ x: touch.clientX, rot: rotY });
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
   return (
     <div style={{ background: "#0a0f1a", border: "2px solid #00c6e044", borderRadius: 14, overflow: "hidden" }}>
       <div style={{ padding: "10px 16px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0a0f1a" }}>
         <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 2, color: "#22c55e" }}>🏡 REAL CONSTRUCTION — FINISHED HOUSE</span>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {/* Driveway */}
-        <polygon points={pts([iso(BW+2, -1, 0), iso(BW+5, -1, 0), iso(BW+5, 3, 0), iso(BW+2, 3, 0)])} fill="#808080" stroke="#606060" strokeWidth="0.5" />
-
-        {/* Sun effect */}
-        <circle cx={W - 60} cy="60" r="40" fill="#ffd700" opacity="0.3" />
-
-        {/* Labels */}
-        <text x={cx} y={H - 20} textAnchor="middle" fill="#2d4a2d" fontSize="12" fontWeight="bold" fontFamily="sans-serif">FINISHED CONSTRUCTION</text>
-        <text x={cx} y={H - 6} textAnchor="middle" fill="#4a6a4a" fontSize="10" fontFamily="sans-serif">{styleTag?.toUpperCase() || "RESIDENTIAL"} · {stories} FLOOR{stories > 1 ? "S" : ""}</text>
-      </svg>
+          <span style={{ fontSize: 10, color: "#4a6480" }}>Photorealistic Render</span>
+        </div>
+      </div>
+      
+      <div style={{ position: "relative", width: "100%", height: 520, background: "#000" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img 
+          src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=80" 
+          alt="Real Construction"
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", padding: "6px 12px", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 600, border: "1px solid rgba(255,255,255,0.2)" }}>
+          CivilOS AI Vision
+        </div>
+      </div>
     </div>
   );
 }
