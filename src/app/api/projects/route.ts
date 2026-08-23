@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const project = await prisma.project.create({
+    let project = await prisma.project.create({
       data: {
         name,
         description: description || null,
@@ -81,6 +81,69 @@ export async function POST(req: NextRequest) {
       },
       include: { stages: true },
     });
+
+    // Instant Wow Result for AI Draft
+    if (project.mode === "AI_DRAFT") {
+      // 1. Generate Mock Data
+      const { getMockDesign, getMockCost } = await import("@/lib/ai-mock");
+      const design = getMockDesign(projectType, "2", "Modern", plotSize || "400m²");
+      const estimatedArea = design.options[0]?.estimatedArea || 200;
+      const cost = getMockCost(estimatedArea, projectType);
+
+      // 2. Create AI Outputs
+      await prisma.aiOutput.createMany({
+        data: [
+          {
+            projectId: project.id,
+            stageType: "AI_ARCHITECT",
+            modelUsed: "gpt-4o-mock",
+            promptUsed: "Mock Instant Generation",
+            outputJson: JSON.stringify(design),
+          },
+          {
+            projectId: project.id,
+            stageType: "AI_COST",
+            modelUsed: "gpt-4o-mock",
+            promptUsed: "Mock Instant Generation",
+            outputJson: JSON.stringify(cost),
+          },
+        ],
+      });
+
+      // 3. Create Cost Estimate
+      await prisma.costEstimate.create({
+        data: {
+          projectId: project.id,
+          totalMin: cost.summary.totalMin,
+          totalMax: cost.summary.totalMax,
+          currency: cost.summary.currency,
+          boqJson: JSON.stringify(cost.boq),
+        },
+      });
+
+      // 4. Update Workflow Stages
+      // We set AI stages to APPROVED and HUMAN stages to SKIPPED, except final delivery which is APPROVED
+      for (const stage of project.stages) {
+        let newStatus = "APPROVED";
+        if (stage.stageType.startsWith("HUMAN_")) {
+          newStatus = "SKIPPED";
+        }
+        await prisma.workflowStage.update({
+          where: { id: stage.id },
+          data: { status: newStatus as any },
+        });
+      }
+
+      // 5. Update Project to Completed
+      project = await prisma.project.update({
+        where: { id: project.id },
+        data: {
+          status: "COMPLETED",
+          progress: 100,
+        },
+        include: { stages: true },
+      });
+    }
 
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
