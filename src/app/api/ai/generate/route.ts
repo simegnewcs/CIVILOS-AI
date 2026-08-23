@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMockDesign } from "@/lib/ai-mock";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
 
   if (!prompt) return NextResponse.json({ error: "Prompt required" }, { status: 400 });
 
-  // Always return mock data for demo/try-free mode
-  if (isDemo || !OPENAI_API_KEY) {
+  // Always return mock data for demo/try-free mode if no API key
+  if (isDemo || !GEMINI_API_KEY) {
     const result = getMockDesign(buildingType || "Residential", stories || "2", style || "Modern", plotSize || "400m²");
     return NextResponse.json({ result, tokensUsed: 0, mock: true });
   }
@@ -62,40 +62,39 @@ Return a JSON object with this exact structure:
 }`;
 
   try {
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+        system_instruction: {
+          parts: { text: systemPrompt }
+        },
+        contents: [
+          { parts: [{ text: userPrompt }] }
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
-        response_format: { type: "json_object" },
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.7,
+        },
       }),
     });
 
-    if (!openaiRes.ok) {
-      const err = await openaiRes.json();
-      console.error("[OpenAI error]", err);
-      const isQuota = err.error?.code === "insufficient_quota" || openaiRes.status === 429;
-      if (isQuota) {
-        const result = getMockDesign(buildingType || "Residential", stories || "2", style || "Modern", plotSize || "400m²");
-        return NextResponse.json({ result, tokensUsed: 0, mock: true });
-      }
-      return NextResponse.json(
-        { error: err.error?.message || "OpenAI request failed" },
-        { status: 502 }
-      );
+    if (!geminiRes.ok) {
+      const err = await geminiRes.json();
+      console.error("[Gemini error]", err);
+      // Fallback to mock if API fails
+      const result = getMockDesign(buildingType || "Residential", stories || "2", style || "Modern", plotSize || "400m²");
+      return NextResponse.json({ result, tokensUsed: 0, mock: true });
     }
 
-    const openaiData = await openaiRes.json();
-    const rawContent = openaiData.choices[0]?.message?.content || "{}";
+    const geminiData = await geminiRes.json();
+    let rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    
+    // Sometimes Gemini wraps JSON in markdown code blocks even with responseMimeType
+    rawContent = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
     const result = JSON.parse(rawContent);
 
     // Skip DB operations in demo/try-free mode or when no valid session
@@ -104,7 +103,7 @@ Return a JSON object with this exact structure:
         data: {
           projectId,
           stageType: "AI_ARCHITECT",
-          modelUsed: "gpt-4o",
+          modelUsed: "gemini-1.5-flash",
           promptUsed: userPrompt,
           outputJson: rawContent,
         },
@@ -116,7 +115,8 @@ Return a JSON object with this exact structure:
       });
     }
 
-    return NextResponse.json({ result, tokensUsed: openaiData.usage?.total_tokens });
+    const tokensUsed = geminiData.usageMetadata?.totalTokenCount || 0;
+    return NextResponse.json({ result, tokensUsed });
   } catch (error) {
     console.error("[ai/generate]", error);
     return NextResponse.json({ error: "AI generation failed" }, { status: 500 });

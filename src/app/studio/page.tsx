@@ -2314,7 +2314,7 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
                 </div>
                 {apiKeyMissing && (
                   <div style={{ background: "#f59e0b18", border: "1px solid #f59e0b44", color: "#f59e0b", borderRadius: 9, padding: "10px 12px", fontSize: 11, lineHeight: 1.6 }}>
-                    ⚠ Add <code>OPENAI_API_KEY=sk-...</code> to your <code>.env.local</code> to enable AI generation.
+                    ⚠ Add <code>GEMINI_API_KEY=...</code> to your <code>.env</code> to enable AI generation.
                   </div>
                 )}
                 <button onClick={handleGenerate} disabled={isGenerating}
