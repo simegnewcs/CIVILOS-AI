@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { GoogleGenAI } from "@google/genai";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -48,25 +49,25 @@ export async function POST(req: NextRequest) {
 
     const prompt = `A stunning, hyper-realistic photorealistic 3D exterior render of a modern ${project.projectType} house. Architectural photography, daylight, beautiful landscaping, high resolution, 8k, octane render. Location context: Addis Ababa, Ethiopia. Size: ${project.plotSize || 'Medium'}.`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
+    const ai = new GoogleGenAI({ apiKey });
     
-    const geminiRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: { sampleCount: 1, aspectRatio: "16:9" },
-      }),
-    });
-
-    if (!geminiRes.ok) {
-      const err = await geminiRes.text();
+    let imageBase64;
+    try {
+      const response = await ai.models.generateImages({
+          model: 'imagen-3.0-generate-002',
+          prompt: prompt,
+          config: {
+              numberOfImages: 1,
+              aspectRatio: '16:9',
+              outputMimeType: 'image/jpeg',
+          },
+      });
+      
+      imageBase64 = response.generatedImages[0].image.imageBytes;
+    } catch (err) {
       console.error("[Gemini Image API Error]", err);
-      return NextResponse.json({ error: "Failed to generate image from Gemini API" }, { status: 502 });
+      return NextResponse.json({ error: `Gemini API Error: ${err}` }, { status: 502 });
     }
-
-    const data = await geminiRes.json();
-    const imageBase64 = data.predictions?.[0]?.bytesBase64Encoded;
 
     if (!imageBase64) {
       return NextResponse.json({ error: "No image data returned from Gemini" }, { status: 502 });
