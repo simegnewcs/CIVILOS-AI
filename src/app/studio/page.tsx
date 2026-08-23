@@ -1777,6 +1777,19 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
   const [style, setStyle] = useState("Modern");
   const [plotSize, setPlotSize] = useState("400m²");
   const [mode, setMode] = useState("CERTIFIED");
+  const [projectName, setProjectName] = useState("");
+
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/projects/${projectId}`).then(r => r.json()).then(data => {
+      if (data.project) {
+        setProjectName(data.project.name);
+        if (data.project.description) setPrompt(data.project.description);
+        if (data.project.projectType) setBuildingType(data.project.projectType);
+        if (data.project.plotSize) setPlotSize(data.project.plotSize);
+      }
+    });
+  }, [projectId]);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadStep, setLoadStep] = useState(0);
@@ -2225,30 +2238,40 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
               ))}
             </div>
 
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Project Brief</div>
-              <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
-                style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 10, padding: "10px 12px", fontSize: 13, outline: "none", resize: "none" }}
-                onFocus={(e) => (e.target.style.borderColor = "var(--cyan)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")} />
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {[
-                { label: "Building Type", value: buildingType, setter: setBuildingType, options: ["Residential", "Commercial", "Public", "Industrial"] },
-                { label: "Stories", value: stories, setter: setStories, options: ["1", "2", "3", "4"] },
-                { label: "Style", value: style, setter: setStyle, options: ["Modern", "Traditional", "Mixed", "Contemporary"] },
-                { label: "Plot Size", value: plotSize, setter: setPlotSize, options: ["200m²", "400m²", "600m²", "800m²+"] },
-              ].map((p) => (
-                <div key={p.label}>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{p.label}</label>
-                  <select value={p.value} onChange={(e) => p.setter(e.target.value)}
-                    style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 8, padding: "7px 10px", fontSize: 12, outline: "none" }}>
-                    {p.options.map((o) => <option key={o}>{o}</option>)}
-                  </select>
+            {projectId ? (
+              <div style={{ background: "rgba(0,198,224,0.06)", border: "1px solid rgba(0,198,224,0.3)", borderRadius: 10, padding: "12px", marginBottom: 4 }}>
+                <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--cyan)" }}>🔗 Linked Project</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{projectName || "Loading..."}</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.5 }}>The AI will use the project's description and details to generate the draft.</div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Project Brief</div>
+                  <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
+                    style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 10, padding: "10px 12px", fontSize: 13, outline: "none", resize: "none" }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--cyan)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")} />
                 </div>
-              ))}
-            </div>
+
+                <div className="flex flex-col gap-3">
+                  {[
+                    { label: "Building Type", value: buildingType, setter: setBuildingType, options: ["Residential", "Commercial", "Public", "Industrial"] },
+                    { label: "Stories", value: stories, setter: setStories, options: ["1", "2", "3", "4"] },
+                    { label: "Style", value: style, setter: setStyle, options: ["Modern", "Traditional", "Mixed", "Contemporary"] },
+                    { label: "Plot Size", value: plotSize, setter: setPlotSize, options: ["200m²", "400m²", "600m²", "800m²+"] },
+                  ].map((p) => (
+                    <div key={p.label}>
+                      <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{p.label}</label>
+                      <select value={p.value} onChange={(e) => p.setter(e.target.value)}
+                        style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 8, padding: "7px 10px", fontSize: 12, outline: "none" }}>
+                        {p.options.map((o) => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             {apiKeyMissing && (
               <div style={{ background: "#f59e0b18", border: "1px solid #f59e0b44", color: "#f59e0b", borderRadius: 9, padding: "10px 12px", fontSize: 11, lineHeight: 1.6 }}>
@@ -2289,29 +2312,39 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
                     </button>
                   ))}
                 </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Project Brief</div>
-                  <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
-                    style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 10, padding: "10px 12px", fontSize: 13, outline: "none", resize: "none" }}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--cyan)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")} />
-                </div>
-                <div className="flex flex-col gap-3">
-                  {[
-                    { label: "Building Type", value: buildingType, setter: setBuildingType, options: ["Residential", "Commercial", "Public", "Industrial"] },
-                    { label: "Stories", value: stories, setter: setStories, options: ["1", "2", "3", "4"] },
-                    { label: "Style", value: style, setter: setStyle, options: ["Modern", "Traditional", "Mixed", "Contemporary"] },
-                    { label: "Plot Size", value: plotSize, setter: setPlotSize, options: ["200m²", "400m²", "600m²", "800m²+"] },
-                  ].map((p) => (
-                    <div key={p.label}>
-                      <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{p.label}</label>
-                      <select value={p.value} onChange={(e) => p.setter(e.target.value)}
-                        style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 8, padding: "7px 10px", fontSize: 12, outline: "none" }}>
-                        {p.options.map((o) => <option key={o}>{o}</option>)}
-                      </select>
+                {projectId ? (
+                  <div style={{ background: "rgba(0,198,224,0.06)", border: "1px solid rgba(0,198,224,0.3)", borderRadius: 10, padding: "12px", marginBottom: 4 }}>
+                    <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--cyan)" }}>🔗 Linked Project</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{projectName || "Loading..."}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.5 }}>The AI will use the project's description and details to generate the draft.</div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Project Brief</div>
+                      <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
+                        style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 10, padding: "10px 12px", fontSize: 13, outline: "none", resize: "none" }}
+                        onFocus={(e) => (e.target.style.borderColor = "var(--cyan)")}
+                        onBlur={(e) => (e.target.style.borderColor = "var(--border)")} />
                     </div>
-                  ))}
-                </div>
+                    <div className="flex flex-col gap-3">
+                      {[
+                        { label: "Building Type", value: buildingType, setter: setBuildingType, options: ["Residential", "Commercial", "Public", "Industrial"] },
+                        { label: "Stories", value: stories, setter: setStories, options: ["1", "2", "3", "4"] },
+                        { label: "Style", value: style, setter: setStyle, options: ["Modern", "Traditional", "Mixed", "Contemporary"] },
+                        { label: "Plot Size", value: plotSize, setter: setPlotSize, options: ["200m²", "400m²", "600m²", "800m²+"] },
+                      ].map((p) => (
+                        <div key={p.label}>
+                          <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{p.label}</label>
+                          <select value={p.value} onChange={(e) => p.setter(e.target.value)}
+                            style={{ width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 8, padding: "7px 10px", fontSize: 12, outline: "none" }}>
+                            {p.options.map((o) => <option key={o}>{o}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
                 {apiKeyMissing && (
                   <div style={{ background: "#f59e0b18", border: "1px solid #f59e0b44", color: "#f59e0b", borderRadius: 9, padding: "10px 12px", fontSize: 11, lineHeight: 1.6 }}>
                     ⚠ Add <code>GEMINI_API_KEY=...</code> to your <code>.env</code> to enable AI generation.
