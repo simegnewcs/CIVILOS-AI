@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  CLIENT
+  ARCHITECT
+  STRUCTURAL_ENGINEER
+  QUANTITY_SURVEYOR
+  PROJECT_MANAGER
+  ADMIN
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  AWAITING_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum StageStatus {
+  PENDING
+  AI_RUNNING
+  AWAITING_HUMAN
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum StageType {
+  CLIENT_BRIEF
+  AI_ARCHITECT
+  HUMAN_ARCHITECT
+  AI_STRUCTURAL
+  HUMAN_STRUCTURAL
+  AI_COST
+  HUMAN_QS
+  PM_APPROVAL
+  FINAL_DELIVERY
+}
+
+enum WorkflowMode {
+  CERTIFIED
+  AI_DRAFT
+}
+
+// ─── USER ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(CLIENT)
+  firmName     String?
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  ownedProjects    Project[]        @relation("ProjectOwner")
+  assignedStages   WorkflowStage[]  @relation("StageAssignee")
+  comments         Comment[]
+  approvals        Approval[]
+
+  @@map("users")
+}
+
+// ─── PROJECT ─────────────────────────────────────────────────────────────────
+
+model Project {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?       @db.Text
+  clientName   String
+  projectType  String
+  location     String?
+  plotSize     String?
+  status       ProjectStatus @default(DRAFT)
+  mode         WorkflowMode  @default(CERTIFIED)
+  progress     Int           @default(0)
+
+  ownerId      String
+  owner        User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  stages       WorkflowStage[]
+  comments     Comment[]
+  costEstimate CostEstimate?
+  aiOutputs    AiOutput[]
+
+  @@map("projects")
+}
+
+// ─── WORKFLOW STAGE ──────────────────────────────────────────────────────────
+
+model WorkflowStage {
+  id          String      @id @default(cuid())
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  stageType   StageType
+  stageOrder  Int
+  status      StageStatus @default(PENDING)
+  assigneeId  String?
+  assignee    User?       @relation("StageAssignee", fields: [assigneeId], references: [id])
+
+  aiOutput    String?     @db.LongText
+  humanNotes  String?     @db.Text
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  approvals   Approval[]
+  comments    Comment[]
+
+  @@unique([projectId, stageType])
+  @@map("workflow_stages")
+}
+
+// ─── APPROVAL ────────────────────────────────────────────────────────────────
+
+model Approval {
+  id        String        @id @default(cuid())
+  stageId   String
+  stage     WorkflowStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+
+  decision  String        // "approved" | "rejected" | "sent_back"
+  signature String
+  notes     String?       @db.Text
+  createdAt DateTime      @default(now())
+
+  @@map("approvals")
+}
+
+// ─── COMMENT ─────────────────────────────────────────────────────────────────
+
+model Comment {
+  id        String         @id @default(cuid())
+  projectId String
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stageId   String?
+  stage     WorkflowStage? @relation(fields: [stageId], references: [id])
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+
+  body      String         @db.Text
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("comments")
+}
+
+// ─── AI OUTPUT ───────────────────────────────────────────────────────────────
+
+model AiOutput {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stageType   StageType
+  version     Int      @default(1)
+  modelUsed   String?
+  promptUsed  String?  @db.LongText
+  outputJson  String   @db.LongText
+  createdAt   DateTime @default(now())
+
+  @@map("ai_outputs")
+}
+
+// ─── COST ESTIMATE ───────────────────────────────────────────────────────────
+
+model CostEstimate {
+  id           String   @id @default(cuid())
+  projectId    String   @unique
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  foundation   Float?
+  structure    Float?
+  finishes     Float?
+  mep          Float?
+  labour       Float?
+  totalMin     Float?
+  totalMax     Float?
+  currency     String   @default("USD")
+  dataSource   String?
+  generatedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("cost_estimates")
+}
