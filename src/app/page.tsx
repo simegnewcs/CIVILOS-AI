@@ -177,8 +177,8 @@ export default function LandingPage() {
         <p className="text-center mb-12" style={{ color: "var(--text-secondary)" }}>Start free, scale as your firm grows</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { plan: "Small Firm", price: "$30–100", period: "/month", features: ["Up to 5 projects", "AI Draft Mode", "3 role seats", "Basic audit trail"] },
-            { plan: "Medium Firm", price: "$200–500", period: "/month", features: ["Unlimited projects", "Certified Workflow Mode", "10 role seats", "Full audit trail", "Priority support"], highlight: true },
+            { plan: "Small Firm", price: "ETB 3,500-11,000", period: "/month", features: ["Up to 5 projects", "AI drafting tools", "Basic collaboration"] },
+            { plan: "Medium Firm", price: "ETB 23,000-58,000", period: "/month", features: ["Unlimited projects", "Full AI suite", "Client portal", "API access", "10 role seats", "Full audit trail", "Priority support"], highlight: true },
             { plan: "Enterprise", price: "Custom", period: "", features: ["Unlimited everything", "Custom AI training", "API access", "Dedicated support", "SLA guarantee"] },
           ].map((p) => (
             <div key={p.plan}

@@ -546,10 +546,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
                         <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Cost Estimate</div>
                         <div className="grid grid-cols-2 gap-3">
                           {[
-                            ["Total Range", `$${Math.round((cost.totalMin || 0) / 1000)}K – $${Math.round((cost.totalMax || 0) / 1000)}K`, "var(--cyan)"],
-                            ["Structure", `$${Math.round((cost.structure || 0) / 1000)}K`, "var(--text-primary)"],
-                            ["MEP", `$${Math.round((cost.mep || 0) / 1000)}K`, "var(--text-primary)"],
-                            ["Labour", `$${Math.round((cost.labour || 0) / 1000)}K`, "var(--text-primary)"],
+                            ["Total Range", `ETB ${Math.round((cost.totalMin || 0)).toLocaleString()} – ETB ${Math.round((cost.totalMax || 0)).toLocaleString()}`, "var(--cyan)"],
+                            ["Structure", `ETB ${Math.round((cost.structure || 0)).toLocaleString()}`, "var(--text-primary)"],
+                            ["MEP", `ETB ${Math.round((cost.mep || 0)).toLocaleString()}`, "var(--text-primary)"],
+                            ["Labour", `ETB ${Math.round((cost.labour || 0)).toLocaleString()}`, "var(--text-primary)"],
                           ].map(([label, val, color]) => (
                             <div key={label as string} style={{ background: "var(--bg-base)", borderRadius: 8, padding: "10px 12px" }}>
                               <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 3 }}>{label}</div>

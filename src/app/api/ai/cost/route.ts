@@ -48,7 +48,7 @@ Return JSON only with this structure:
     "overheadContingency": 18000,
     "totalMin": 245000,
     "totalMax": 280000,
-    "currency": "USD",
+    "currency": "ETB",
     "pricePerSqm": 1225
   },
   "notes": "Key cost assumptions and market notes",
@@ -100,7 +100,7 @@ Return JSON only with this structure:
           labour: result.summary.labourCost,
           totalMin: result.summary.totalMin,
           totalMax: result.summary.totalMax,
-          currency: result.summary.currency || "USD",
+          currency: result.summary.currency || "ETB",
           dataSource: "OpenAI GPT-4o + Ethiopia Market Q2 2025",
         },
         create: {
@@ -113,7 +113,7 @@ Return JSON only with this structure:
           labour: result.summary.labourCost,
           totalMin: result.summary.totalMin,
           totalMax: result.summary.totalMax,
-          currency: result.summary.currency || "USD",
+          currency: result.summary.currency || "ETB",
           dataSource: "OpenAI GPT-4o + Ethiopia Market Q2 2025",
         },
       });

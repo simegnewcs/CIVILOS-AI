@@ -182,7 +182,7 @@ export default function SettingsPage() {
               <div style={{ background: "linear-gradient(135deg, var(--blue-dim), var(--bg-card))", border: "1px solid var(--cyan)", borderRadius: 12, padding: 24 }}>
                 <div style={{ color: "var(--cyan)", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>CURRENT PLAN</div>
                 <div className="text-2xl font-bold mb-1">Medium Firm</div>
-                <div className="text-3xl font-bold mb-4" style={{ color: "var(--cyan)" }}>$300<span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 400 }}>/month</span></div>
+                <div className="text-3xl font-bold mb-4" style={{ color: "var(--cyan)" }}>ETB 35,000<span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 400 }}>/month</span></div>
                 <div className="flex flex-col gap-2">
                   {["Unlimited projects", "Certified Workflow Mode", "10 role seats", "Full audit trail"].map((f) => (
                     <div key={f} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
