@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
           },
       });
       
-      imageBase64 = response.generatedImages[0].image.imageBytes;
+      imageBase64 = response.generatedImages?.[0]?.image?.imageBytes || "";
     } catch (err: any) {
       console.error("[Gemini Image API Error]", err.message);
       

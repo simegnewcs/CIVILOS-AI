@@ -21,7 +21,7 @@ export function getMockDesign(buildingType: string, stories: string, style: stri
         ],
         estimatedArea: floorArea,
         structuralNotes: "Regular column grid 4.5m × 4.5m. Flat slab construction with RC frame. Suitable for 2–3 storeys without specialist foundation.",
-        costRange: { min: Math.round(floorArea * 1200), max: Math.round(floorArea * 1400), currency: "USD" },
+        costRange: { min: Math.round(floorArea * 155000), max: Math.round(floorArea * 175000), currency: "ETB" },
       },
       {
         id: "B", label: "Option B", styleTag: "Ethiopian Courtyard",
@@ -39,7 +39,7 @@ export function getMockDesign(buildingType: string, stories: string, style: stri
         ],
         estimatedArea: Math.round(floorArea * 1.05),
         structuralNotes: "Load-bearing masonry walls around courtyard perimeter. Requires careful drainage design for courtyard. Slightly increased foundation depth.",
-        costRange: { min: Math.round(floorArea * 1100), max: Math.round(floorArea * 1300), currency: "USD" },
+        costRange: { min: Math.round(floorArea * 142000), max: Math.round(floorArea * 168000), currency: "ETB" },
       },
       {
         id: "C", label: "Option C", styleTag: "Compact Contemporary",
@@ -57,7 +57,7 @@ export function getMockDesign(buildingType: string, stories: string, style: stri
         ],
         estimatedArea: Math.round(floorArea * 0.95),
         structuralNotes: "Simple rectangular grid minimises formwork cost. Flat roof reduces labour time. Standard RC frame, no specialist works required.",
-        costRange: { min: Math.round(floorArea * 1050), max: Math.round(floorArea * 1250), currency: "USD" },
+        costRange: { min: Math.round(floorArea * 136000), max: Math.round(floorArea * 162000), currency: "ETB" },
       },
     ],
     structuralWarnings: [
@@ -69,21 +69,21 @@ export function getMockDesign(buildingType: string, stories: string, style: stri
 }
 
 export function getMockCost(totalArea: number, buildingType: string) {
-  const base = buildingType === "Commercial" ? 1400 : buildingType === "Public" ? 1300 : 1200;
+  const base = buildingType === "Commercial" ? 180000 : buildingType === "Public" ? 165000 : 155000;
   const mat = Math.round(totalArea * base * 0.6);
   const lab = Math.round(totalArea * base * 0.28);
   const ov = Math.round(totalArea * base * 0.12);
   return {
     boq: [
-      { category: "Site Preparation", description: "Excavation and leveling", unit: "m²", qty: totalArea, unitRate: 45, total: totalArea * 45 },
-      { category: "Foundation", description: "Strip foundation C25", unit: "m³", qty: Math.round(totalArea * 0.24), unitRate: 320, total: Math.round(totalArea * 0.24 * 320) },
-      { category: "Structural Frame", description: "RC columns and beams", unit: "m³", qty: Math.round(totalArea * 0.42), unitRate: 480, total: Math.round(totalArea * 0.42 * 480) },
-      { category: "Masonry", description: "Block walls 20cm", unit: "m²", qty: Math.round(totalArea * 1.6), unitRate: 85, total: Math.round(totalArea * 1.6 * 85) },
-      { category: "Roof", description: "EGA sheet with timber frame", unit: "m²", qty: Math.round(totalArea * 1.05), unitRate: 120, total: Math.round(totalArea * 1.05 * 120) },
-      { category: "Finishes", description: "Plaster, tiles, painting", unit: "m²", qty: Math.round(totalArea * 3.2), unitRate: 55, total: Math.round(totalArea * 3.2 * 55) },
-      { category: "Doors & Windows", description: "Aluminium frames + glass", unit: "pcs", qty: Math.round(totalArea / 12), unitRate: 850, total: Math.round(totalArea / 12 * 850) },
-      { category: "Electrical", description: "Complete electrical installation", unit: "LS", qty: 1, unitRate: Math.round(totalArea * 110), total: Math.round(totalArea * 110) },
-      { category: "Plumbing", description: "Water supply and drainage", unit: "LS", qty: 1, unitRate: Math.round(totalArea * 90), total: Math.round(totalArea * 90) },
+      { category: "Site Preparation", description: "Excavation and leveling", unit: "m²", qty: totalArea, unitRate: 5800, total: totalArea * 5800 },
+      { category: "Foundation", description: "Strip foundation C25", unit: "m³", qty: Math.round(totalArea * 0.24), unitRate: 41600, total: Math.round(totalArea * 0.24 * 41600) },
+      { category: "Structural Frame", description: "RC columns and beams", unit: "m³", qty: Math.round(totalArea * 0.42), unitRate: 62400, total: Math.round(totalArea * 0.42 * 62400) },
+      { category: "Masonry", description: "Block walls 20cm", unit: "m²", qty: Math.round(totalArea * 1.6), unitRate: 11050, total: Math.round(totalArea * 1.6 * 11050) },
+      { category: "Roof", description: "EGA sheet with timber frame", unit: "m²", qty: Math.round(totalArea * 1.05), unitRate: 15600, total: Math.round(totalArea * 1.05 * 15600) },
+      { category: "Finishes", description: "Plaster, tiles, painting", unit: "m²", qty: Math.round(totalArea * 3.2), unitRate: 7150, total: Math.round(totalArea * 3.2 * 7150) },
+      { category: "Doors & Windows", description: "Aluminium frames + glass", unit: "pcs", qty: Math.round(totalArea / 12), unitRate: 110500, total: Math.round(totalArea / 12 * 110500) },
+      { category: "Electrical", description: "Complete electrical installation", unit: "LS", qty: 1, unitRate: Math.round(totalArea * 14300), total: Math.round(totalArea * 14300) },
+      { category: "Plumbing", description: "Water supply and drainage", unit: "LS", qty: 1, unitRate: Math.round(totalArea * 11700), total: Math.round(totalArea * 11700) },
     ],
     summary: {
       materialCost: mat,
@@ -91,10 +91,10 @@ export function getMockCost(totalArea: number, buildingType: string) {
       overheadContingency: ov,
       totalMin: mat + lab + ov,
       totalMax: Math.round((mat + lab + ov) * 1.15),
-      currency: "USD",
+      currency: "ETB",
       pricePerSqm: base,
     },
-    notes: "Rates based on Addis Ababa Q2 2025 market. Labour includes Ethiopian standard rates. Prices exclude land acquisition.",
+    notes: "Rates based on Addis Ababa Q2 2025 market. Labour includes Ethiopian standard rates. Prices in ETB — exclude land acquisition.",
     riskFlags: ["Material price volatility in cement and rebar (±15%)", "Soil condition unknown — allow contingency for foundation"],
   };
 }

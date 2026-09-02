@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
 
   if (!prompt) return NextResponse.json({ error: "Prompt required" }, { status: 400 });
 
-  // Always return mock data for demo/try-free mode if no API key
-  if (isDemo || !GEMINI_API_KEY) {
+  // Only return mock data if there is no API key configured.
+  if (!GEMINI_API_KEY) {
     const result = getMockDesign(buildingType || "Residential", stories || "2", style || "Modern", plotSize || "400m²");
     return NextResponse.json({ result, tokensUsed: 0, mock: true });
   }
@@ -55,7 +55,7 @@ Return a JSON object with this exact structure:
       ],
       "estimatedArea": 180,
       "structuralNotes": "Brief structural observation",
-      "costRange": { "min": 280000, "max": 320000, "currency": "USD" }
+      "costRange": { "min": 36000000, "max": 42000000, "currency": "ETB" }
     }
   ],
   "structuralWarnings": ["warning 1 if any"],
@@ -102,7 +102,38 @@ Return a JSON object with this exact structure:
 
     const tokensUsed = 0; // The SDK doesn't always return token count simply, so we default to 0
     return NextResponse.json({ result, tokensUsed });
-  } catch (error) {
+  } catch (error: unknown) {
+    // ── Graceful quota fallback ──────────────────────────────────────────────
+    // When the Gemini free-tier daily quota is exhausted (429 RESOURCE_EXHAUSTED)
+    // we fall back to rich mock data so the UI keeps working instead of showing
+    // a generic error to the user.
+    const isQuotaError =
+      (error instanceof Error &&
+        (error.message.includes("RESOURCE_EXHAUSTED") ||
+          error.message.includes("quota") ||
+          (error as { status?: number }).status === 429)) ||
+      (typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as { status: number }).status === 429);
+
+    if (isQuotaError) {
+      console.warn("[ai/generate] Gemini quota exhausted — falling back to mock data");
+      const result = getMockDesign(
+        buildingType || "Residential",
+        stories || "2",
+        style || "Modern",
+        plotSize || "400m²"
+      );
+      return NextResponse.json({
+        result,
+        tokensUsed: 0,
+        mock: true,
+        quotaExceeded: true,
+        notice: "Daily AI quota reached. Showing sample design — your quota resets at midnight Pacific time.",
+      });
+    }
+
     console.error("[ai/generate]", error);
     return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
   }

@@ -60,15 +60,24 @@ function buildGrid(rooms: Room[]): GridRoom[] {
 
 // ── Technical Architectural Floor Plan ──────────────────────────────────────
 
-function AiDrawing({ title, subtitle, prompt, seed }: { title: string; subtitle: string; prompt: string; seed: number }) {
+function AiDrawing({ title, subtitle, prompt, seed, startDelay = 0 }: { title: string; subtitle: string; prompt: string; seed: number; startDelay?: number }) {
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ── Reset immediately when prompt/seed changes so the old image is cleared ──
+  useEffect(() => {
+    setImgSrc(null);
+    setLoading(true);
+  }, [prompt, seed]);
+
   useEffect(() => {
     let active = true;
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=768&nologo=true&seed=${seed}`;
+    const url = `/api/ai/image-proxy?prompt=${encodeURIComponent(prompt)}&seed=${seed}`;
     
     const loadImage = async (retries = 5, delay = 1000 + Math.random() * 2000) => {
+      if (startDelay > 0) {
+        await new Promise(resolve => setTimeout(resolve, startDelay));
+      }
       try {
         const res = await fetch(url);
         if (res.status === 429) {
@@ -123,76 +132,364 @@ function AiDrawing({ title, subtitle, prompt, seed }: { title: string; subtitle:
   );
 }
 
-function ArchFloorPlan({ rooms, floor, label }: { rooms: Room[]; floor: number; label: string }) {
-  if (!rooms.filter(r => r.floor === floor).length) return null;
-  return <AiDrawing title={`FLOOR PLAN — ${label.toUpperCase()}`} subtitle="AI Generated Blueprint" prompt={`architectural 2d floor plan blueprint for floor ${floor}, highly detailed architectural drawing, clean white background, cad style`} seed={rooms.length * floor} />
+// ── Option seed helper ────────────────────────────────────────────────────────
+function optSeed(optionId: string): number {
+  return optionId === "A" ? 100 : optionId === "B" ? 200 : 300;
 }
 
-// ── Front Elevation ──────────────────────────────────────────────────────────
-function FrontElevation({ rooms, stories, styleTag }: { rooms: Room[]; stories: number; styleTag: string }) {
-  return <AiDrawing title="FRONT ELEVATION — VIEW A" subtitle="Photorealistic Architectural Drawing" prompt={`Architectural front elevation technical drawing of a ${stories} story ${styleTag} style house, clean white background, architectural blueprint style, high detail`} seed={rooms.length + stories} />
+// ── Room list string helper (for rich prompts) ─────────────────────────────
+function roomList(rooms: Room[]): string {
+  return rooms.map(r => `${r.name} (${r.area}m²)`).join(", ");
 }
 
-// ── Side Elevation (left or right) ──────────────────────────────────────────
-function SideElevation({ rooms, stories, styleTag, side }: { rooms: Room[]; stories: number; styleTag: string; side: "LEFT" | "RIGHT" }) {
-  return <AiDrawing title={`SIDE ELEVATION — ${side}`} subtitle="Photorealistic Architectural Drawing" prompt={`Architectural side elevation technical drawing of a ${stories} story ${styleTag} style house, clean white background, architectural blueprint style, high detail`} seed={rooms.length * (side === 'LEFT' ? 1 : 2)} />
-}
+// ── Architectural Floor Plan (SVG Technical + AI Render) ─────────────────────
+function ArchFloorPlan({ rooms, floor, label, optionId }: { rooms: Room[]; floor: number; label: string; optionId: string }) {
+  const filtered = rooms.filter(r => r.floor === floor);
+  if (!filtered.length) return null;
+  const grid = buildGrid(filtered);
+  const svgW = Math.max(...grid.map(r => r.x + r.w)) + 60;
+  const svgH = Math.max(...grid.map(r => r.y + r.h)) + 60;
+  const DIM_OFFSET = 22;
+  const totalArea = filtered.reduce((s, r) => s + r.area, 0);
+  const aiPrompt = `Precise architectural 2D floor plan blueprint, ${label}, rooms: ${roomList(filtered)}, total ${totalArea}m², CAD technical drawing style, white background, black walls, room labels with measurements, north arrow, scale bar, professional architectural drafting, option ${optionId}`;
 
-// ── Back Elevation ────────────────────────────────────────────────────────────
-function BackElevation({ rooms, stories, styleTag }: { rooms: Room[]; stories: number; styleTag: string }) {
-  return <AiDrawing title="BACK ELEVATION — VIEW C" subtitle="Photorealistic Architectural Drawing" prompt={`Architectural back rear elevation technical drawing of a ${stories} story ${styleTag} style house, clean white background, architectural blueprint style, high detail`} seed={rooms.length + 5} />
-}
-
-
-// ── Isometric 3D View ─────────────────────────────────────────────────────────
-function Iso3DView({ rooms, stories, styleTag }: { rooms: Room[]; stories: number; styleTag: string }) {
-  return <AiDrawing title={`${styleTag?.toUpperCase() || "RESIDENTIAL"} DESIGN`} subtitle={`${stories} FLOOR${stories > 1 ? "S" : ""} · ISOMETRIC 3D VIEW`} prompt={`3D isometric architectural render of a ${stories} story ${styleTag} style house, white background, high quality architectural visualization, beautiful lighting`} seed={rooms.length + 10} />
-}
-
-// ── Real Construction - Finished House Visual ────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function RealConstructionView({ rooms, stories, styleTag }: { rooms: Room[]; stories: number; styleTag: string }) {
   return (
-    <div style={{ background: "#0a0f1a", border: "2px solid #00c6e044", borderRadius: 14, overflow: "hidden" }}>
-      <div style={{ padding: "10px 16px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0a0f1a" }}>
-        <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 2, color: "#22c55e" }}>🏡 REAL CONSTRUCTION — FINISHED HOUSE</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 10, color: "#4a6480" }}>Photorealistic Render</span>
+    <>
+      {/* ── SVG Technical Drawing ── */}
+      <div style={{ background: "#0a0f1a", border: "1px solid #1e293b", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "#00c6e0" }}>FLOOR PLAN — {label.toUpperCase()} · TECHNICAL</span>
+          <span style={{ fontSize: 10, color: "#4a6480" }}>Scale: 1:50 · All dims in metres · Option {optionId}</span>
+        </div>
+        <svg width="100%" style={{ display: "block", overflow: "visible" }}
+          viewBox={`${-DIM_OFFSET} ${-DIM_OFFSET} ${svgW + DIM_OFFSET * 2} ${svgH + DIM_OFFSET * 2}`}>
+          <defs>
+            <pattern id={`grid-${floor}-${optionId}`} width="14" height="14" patternUnits="userSpaceOnUse">
+              <circle cx="7" cy="7" r="0.6" fill="#1e2a3a" />
+            </pattern>
+          </defs>
+          <rect x={-DIM_OFFSET} y={-DIM_OFFSET} width={svgW + DIM_OFFSET * 2} height={svgH + DIM_OFFSET * 2} fill={`url(#grid-${floor}-${optionId})`} />
+          <rect x={0} y={0} width={svgW} height={svgH} fill="none" stroke="#1e2a3a" strokeWidth={1} strokeDasharray="4,4" />
+          {grid.map((r, i) => {
+            const fill = roomFill(r.name);
+            const stroke = roomStroke(r.name);
+            const WALL = 3;
+            const wM = (r.w / 14).toFixed(1);
+            const hM = (r.h / 14).toFixed(1);
+            const doorW = Math.min(r.w * 0.28, 26);
+            const doorX = r.x + WALL;
+            const doorY = r.y + r.h - WALL;
+            const winW = Math.min(r.w * 0.35, 30);
+            const winX = r.x + (r.w - winW) / 2;
+            return (
+              <g key={i}>
+                <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={fill} />
+                <rect x={r.x} y={r.y} width={r.w} height={r.h} fill="none" stroke={stroke} strokeWidth={WALL} />
+                <rect x={r.x + WALL} y={r.y + WALL} width={r.w - WALL * 2} height={r.h - WALL * 2} fill="none" stroke={stroke} strokeWidth={0.5} strokeOpacity={0.3} />
+                <path d={`M ${doorX} ${doorY} L ${doorX} ${doorY - doorW} A ${doorW} ${doorW} 0 0 1 ${doorX + doorW} ${doorY} Z`} fill="none" stroke={stroke} strokeWidth={1} opacity={0.7} />
+                <line x1={doorX} y1={doorY} x2={doorX + doorW} y2={doorY} stroke={stroke} strokeWidth={1} opacity={0.7} />
+                <line x1={winX} y1={r.y} x2={winX + winW} y2={r.y} stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" />
+                <line x1={winX} y1={r.y} x2={winX + winW} y2={r.y} stroke={stroke} strokeWidth={1} strokeDasharray="3,2" />
+                <text x={r.x + r.w / 2} y={r.y + r.h / 2 - 7} textAnchor="middle" fill={stroke} fontSize={Math.min(11, r.w / 8)} fontWeight="bold" fontFamily="monospace">{r.name.length > 14 ? r.name.slice(0, 13) + "…" : r.name}</text>
+                <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 8} textAnchor="middle" fill={stroke} fontSize={9} fontFamily="monospace" opacity={0.8}>{r.area} m²</text>
+                <g>
+                  <line x1={r.x} y1={r.y + r.h + 8} x2={r.x + r.w} y2={r.y + r.h + 8} stroke="#445566" strokeWidth={0.8} />
+                  <line x1={r.x} y1={r.y + r.h + 4} x2={r.x} y2={r.y + r.h + 12} stroke="#445566" strokeWidth={0.8} />
+                  <line x1={r.x + r.w} y1={r.y + r.h + 4} x2={r.x + r.w} y2={r.y + r.h + 12} stroke="#445566" strokeWidth={0.8} />
+                  <text x={r.x + r.w / 2} y={r.y + r.h + 20} textAnchor="middle" fill="#445566" fontSize={8} fontFamily="monospace">{wM} m</text>
+                </g>
+                <g>
+                  <line x1={r.x + r.w + 8} y1={r.y} x2={r.x + r.w + 8} y2={r.y + r.h} stroke="#445566" strokeWidth={0.8} />
+                  <line x1={r.x + r.w + 4} y1={r.y} x2={r.x + r.w + 12} y2={r.y} stroke="#445566" strokeWidth={0.8} />
+                  <line x1={r.x + r.w + 4} y1={r.y + r.h} x2={r.x + r.w + 12} y2={r.y + r.h} stroke="#445566" strokeWidth={0.8} />
+                  <text x={r.x + r.w + 19} y={r.y + r.h / 2} textAnchor="middle" dominantBaseline="central" fill="#445566" fontSize={8} fontFamily="monospace" transform={`rotate(90, ${r.x + r.w + 19}, ${r.y + r.h / 2})`}>{hM} m</text>
+                </g>
+                <text x={r.x + 5} y={r.y + 12} fill={stroke} fontSize={8} fontFamily="monospace" opacity={0.5}>{String(i + 1).padStart(2, "0")}</text>
+              </g>
+            );
+          })}
+          <g transform={`translate(${svgW - 20}, 18)`}>
+            <circle r={10} fill="#0d1929" stroke="#1e2a3a" strokeWidth={1} />
+            <polygon points="0,-8 -4,4 0,2 4,4" fill="#00c6e0" />
+            <text x={0} y={16} textAnchor="middle" fill="#4a6480" fontSize={7} fontFamily="monospace">N</text>
+          </g>
+        </svg>
+        <div style={{ padding: "8px 14px", borderTop: "1px solid #1e293b", display: "flex", flexWrap: "wrap", gap: "8px 16px" }}>
+          {filtered.map(r => (
+            <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 10, height: 10, background: roomFill(r.name), border: `1.5px solid ${roomStroke(r.name)}`, borderRadius: 2 }} />
+              <span style={{ fontSize: 10, color: "#4a6480", fontFamily: "monospace" }}>{r.name} ({r.area}m²)</span>
+            </div>
+          ))}
         </div>
       </div>
-      
-      <div style={{ position: "relative", width: "100%", height: 520, background: "#000" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img 
-          src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=80" 
-          alt="Real Construction"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-        <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", padding: "6px 12px", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 600, border: "1px solid rgba(255,255,255,0.2)" }}>
-          CivilOS AI Vision
-        </div>
-      </div>
-    </div>
+
+      {/* ── AI Realistic Floor Plan Render ── */}
+      <AiDrawing
+        title={`FLOOR PLAN — ${label.toUpperCase()} · AI RENDER`}
+        subtitle={`Option ${optionId} · ${totalArea}m² · Photorealistic Blueprint`}
+        prompt={aiPrompt}
+        seed={filtered.length * floor + optSeed(optionId) + 1}
+      />
+    </>
   );
 }
 
-// ── Final Presentation ───────────────────────────────────────────────────────
-function FinalPresentation({ rooms, stories, styleTag, option }: { rooms: Room[]; stories: number; styleTag: string; option: Option }) {
-  const isModern = styleTag?.toLowerCase().includes("modern") || styleTag?.toLowerCase().includes("contemporary");
+// ── Front Elevation ───────────────────────────────────────────────────────────
+function FrontElevation({ rooms, stories, styleTag, optionId }: { rooms: Room[]; stories: number; styleTag: string; optionId: string }) {
+  const totalArea = rooms.reduce((s, r) => s + r.area, 0);
   const hasBalcony = rooms.some(r => r.name.toLowerCase().includes("balcony"));
   const hasGarage = rooms.some(r => r.name.toLowerCase().includes("garage"));
+  const features = [hasBalcony && "balcony", hasGarage && "garage"].filter(Boolean).join(", ");
+  const prompt = `Precise architectural front elevation technical drawing, ${stories}-story ${styleTag} style building${features ? `, features: ${features}` : ""}, total area ${totalArea}m², clean white background, black line drawing, measurements and dimension lines, floor levels marked, architectural blueprint style, professional CAD, option ${optionId}`;
+  return (
+    <AiDrawing
+      title="FRONT ELEVATION — VIEW A"
+      subtitle={`Option ${optionId} · ${stories} Stories · ${styleTag}`}
+      prompt={prompt}
+      seed={rooms.length + stories + optSeed(optionId) + 2}
+      startDelay={1000}
+    />
+  );
+}
 
-  // Group rooms by floor
-  const floorRooms = (floor: number) => rooms.filter(r => r.floor === floor);
+// ── Side Elevation ────────────────────────────────────────────────────────────
+function SideElevation({ rooms, stories, styleTag, side, optionId }: { rooms: Room[]; stories: number; styleTag: string; side: "LEFT" | "RIGHT"; optionId: string }) {
+  const prompt = `Precise architectural ${side.toLowerCase()} side elevation technical drawing, ${stories}-story ${styleTag} style building, white background, black line architectural drawing, floor levels, dimension lines, window and door openings, professional CAD blueprint, option ${optionId}`;
+  return (
+    <AiDrawing
+      title={`SIDE ELEVATION — ${side}`}
+      subtitle={`Option ${optionId} · ${stories} Stories · ${styleTag}`}
+      prompt={prompt}
+      seed={rooms.length * (side === "LEFT" ? 3 : 4) + optSeed(optionId) + 3}
+      startDelay={2000}
+    />
+  );
+}
+
+// ── Back Elevation ────────────────────────────────────────────────────────────
+function BackElevation({ rooms, stories, styleTag, optionId }: { rooms: Room[]; stories: number; styleTag: string; optionId: string }) {
+  const prompt = `Precise architectural rear back elevation technical drawing, ${stories}-story ${styleTag} style building, white background, black line drawing, floor levels, dimension lines, architectural blueprint style, professional CAD, option ${optionId}`;
+  return (
+    <AiDrawing
+      title="BACK ELEVATION — VIEW C"
+      subtitle={`Option ${optionId} · ${stories} Stories · ${styleTag}`}
+      prompt={prompt}
+      seed={rooms.length + 5 + optSeed(optionId) + 4}
+      startDelay={3000}
+    />
+  );
+}
+
+// ── Section Cut A-A ───────────────────────────────────────────────────────────
+function SectionCut({ rooms, stories, optionId }: { rooms: Room[]; stories: number; optionId: string }) {
+  const floorRooms = rooms.filter(r => r.floor === 1);
+  const prompt = `Precise architectural longitudinal section cut A-A drawing, ${stories}-story building, rooms: ${roomList(floorRooms)}, white background, black hatched walls and slabs, ceiling heights annotated, structural elements visible, floor levels, professional CAD section drawing, option ${optionId}`;
+  return (
+    <AiDrawing
+      title="SECTION CUT — A–A"
+      subtitle={`Option ${optionId} · Longitudinal Section · Scale 1:50`}
+      prompt={prompt}
+      seed={rooms.length * 7 + stories + optSeed(optionId) + 5}
+      startDelay={4000}
+    />
+  );
+}
+
+// ── Isometric 3D View ─────────────────────────────────────────────────────────
+function Iso3DView({ rooms, stories, styleTag, optionId }: { rooms: Room[]; stories: number; styleTag: string; optionId: string }) {
   const totalArea = rooms.reduce((s, r) => s + r.area, 0);
+  const isModern = styleTag?.toLowerCase().includes("modern") || styleTag?.toLowerCase().includes("contemporary");
+  const hasGarage = rooms.some(r => r.name.toLowerCase().includes("garage"));
+  const hasBalcony = rooms.some(r => r.name.toLowerCase().includes("balcony"));
 
-  // Sample interior room types for gallery
-  const interiorRooms = [
-    { name: "Living Room", icon: "🛋️", color: "#c9a87c" },
-    { name: "Dining", icon: "🍽️", color: "#a08060" },
-    { name: "Kitchen", icon: "👨‍🍳", color: "#d4b896" },
-    { name: "Master Bedroom", icon: "🛏️", color: "#b8a090" },
-  ].filter(ir => rooms.some(r => r.name.toLowerCase().includes(ir.name.toLowerCase())));
+  const [rotY, setRotY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, rot: 0 });
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const W = 640, H = 340;
+  const cx = W / 2, cy = H * 0.55;
+  const SX = 1.1, SY = 0.55, SH = 1.05;
+  const UNIT = 18;
+  const STORY_H = 3;
+  const WALL_T = 0.3;
+  const bldW = Math.min(10, Math.max(6, rooms.length * 0.8));
+  const bldD = Math.min(9, Math.max(5, rooms.length * 0.6));
+
+  function iso(gx: number, gy: number, gz: number) {
+    const cosR = Math.cos(rotY);
+    const sinR = Math.sin(rotY);
+    const rx = gx * cosR - gy * sinR;
+    const ry = gx * sinR + gy * cosR;
+    return { x: cx + (rx - ry) * SX * UNIT, y: cy + (rx + ry) * SY * UNIT - gz * SH * UNIT };
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => { setIsDragging(true); setDragStart({ x: e.clientX, rot: rotY }); };
+  const handleMouseMove = (e: React.MouseEvent) => { if (!isDragging) return; setRotY(dragStart.rot + (e.clientX - dragStart.x) * 0.01); };
+  const handleMouseUp = () => setIsDragging(false);
+  const handleTouchStart = (e: React.TouchEvent) => { const t = e.touches[0]; setIsDragging(true); setDragStart({ x: t.clientX, rot: rotY }); };
+  const handleTouchMove = (e: React.TouchEvent) => { if (!isDragging) return; setRotY(dragStart.rot + (e.touches[0].clientX - dragStart.x) * 0.01); };
+
+  // Build floor boxes
+  const floors = Array.from({ length: stories }, (_, i) => i);
+  const floorColors = ["#0d192e", "#0a1525", "#091220", "#07101c"];
+
+  // Roof
+  const roofPts = [
+    iso(0, 0, stories * STORY_H), iso(bldW, 0, stories * STORY_H),
+    iso(bldW, bldD, stories * STORY_H), iso(0, bldD, stories * STORY_H),
+  ];
+  const ridgeH = isModern ? 0.5 : 2.2;
+  const ridgePts = isModern
+    ? roofPts
+    : [iso(0, 0, stories * STORY_H), iso(bldW / 2, bldD / 2, stories * STORY_H + ridgeH), iso(bldW, 0, stories * STORY_H)];
+
+  function pts(arr: { x: number; y: number }[]) { return arr.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "); }
+
+  // Ground shadow
+  const shadow = [iso(-0.5, -0.5, 0), iso(bldW + 0.5, -0.5, 0), iso(bldW + 1, bldD + 1, 0), iso(-1, bldD + 0.5, 0)];
+
+  const aiPrompt = `High-quality 3D isometric architectural visualization, ${stories}-story ${styleTag} style house, total area ${totalArea}m², rooms: ${roomList(rooms)}, clean white background, architectural axonometric view, detailed building with windows doors and roofing, professional architectural render, option ${optionId}`;
+
+  return (
+    <>
+      {/* ── SVG Interactive Isometric ── */}
+      <div style={{ background: "#0a0f1a", border: "1px solid #1e293b", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "#00c6e0" }}>ISOMETRIC 3D VIEW · {styleTag?.toUpperCase() || "DESIGN"} · TECHNICAL</span>
+          <span style={{ fontSize: 10, color: "#4a6480" }}>Option {optionId} · Drag to rotate · {stories} fl · {totalArea}m²</span>
+        </div>
+        <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", background: "#070d18", cursor: isDragging ? "grabbing" : "grab" }}
+          onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleMouseUp}>
+          {/* Ground shadow */}
+          <polygon points={pts(shadow)} fill="#00000044" />
+          {/* Ground grid */}
+          {[-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12].map(gx =>
+            [-2,-1,0,1,2,3,4,5,6,7,8,9,10].map(gy => {
+              const p = iso(gx, gy, 0);
+              return <circle key={`${gx}-${gy}`} cx={p.x} cy={p.y} r={1} fill="#1a2535" />;
+            })
+          )}
+          {/* Floor boxes */}
+          {floors.map(fi => {
+            const z0 = fi * STORY_H, z1 = (fi + 1) * STORY_H;
+            const roomsOnFloor = rooms.filter(r => r.floor === fi + 1);
+            const floorColor = floorColors[fi % floorColors.length];
+            // Front face
+            const front = [iso(0,0,z0),iso(bldW,0,z0),iso(bldW,0,z1),iso(0,0,z1)];
+            // Side face
+            const side = [iso(bldW,0,z0),iso(bldW,bldD,z0),iso(bldW,bldD,z1),iso(bldW,0,z1)];
+            // Top face (only if not last floor)
+            const top = fi < stories - 1 ? [iso(0,0,z1),iso(bldW,0,z1),iso(bldW,bldD,z1),iso(0,bldD,z1)] : null;
+            // Windows on front
+            const winCount = Math.min(4, roomsOnFloor.length || 2);
+            return (
+              <g key={fi}>
+                <polygon points={pts(front)} fill={floorColor} stroke="#00c6e0" strokeWidth={WALL_T} />
+                <polygon points={pts(side)} fill="#070f1e" stroke="#00c6e0" strokeWidth={WALL_T} />
+                {top && <polygon points={pts(top)} fill="#0d1929" stroke="#00c6e066" strokeWidth={0.5} />}
+                {/* Windows on front face */}
+                {Array.from({length: winCount}).map((_,wi) => {
+                  const wx = (wi + 0.5) * bldW / winCount;
+                  const wz = z0 + STORY_H * 0.3;
+                  const wh = STORY_H * 0.4;
+                  const ww = bldW * 0.12;
+                  const tl = iso(wx - ww/2, 0, wz + wh);
+                  const tr = iso(wx + ww/2, 0, wz + wh);
+                  const br = iso(wx + ww/2, 0, wz);
+                  const bl = iso(wx - ww/2, 0, wz);
+                  return <polygon key={wi} points={pts([tl,tr,br,bl])} fill="#00c6e018" stroke="#00c6e066" strokeWidth={0.8} />;
+                })}
+                {/* Windows on side face */}
+                {Array.from({length: 2}).map((_,wi) => {
+                  const wy = (wi + 0.5) * bldD / 2;
+                  const wz = z0 + STORY_H * 0.3;
+                  const wh = STORY_H * 0.4;
+                  const wd = bldD * 0.12;
+                  const tl = iso(bldW, wy - wd/2, wz + wh);
+                  const tr = iso(bldW, wy + wd/2, wz + wh);
+                  const br = iso(bldW, wy + wd/2, wz);
+                  const bl = iso(bldW, wy - wd/2, wz);
+                  return <polygon key={wi} points={pts([tl,tr,br,bl])} fill="#00c6e012" stroke="#00c6e044" strokeWidth={0.6} />;
+                })}
+                {/* Floor label */}
+                {(() => { const lp = iso(bldW / 2, 0, z0 + STORY_H / 2); return (
+                  <text key="lbl" x={lp.x} y={lp.y} textAnchor="middle" dominantBaseline="central" fill="#00c6e088" fontSize={9} fontFamily="monospace" fontWeight="bold">
+                    F{fi + 1}
+                  </text>
+                ); })()}
+              </g>
+            );
+          })}
+          {/* Roof */}
+          {isModern ? (
+            <>
+              <polygon points={pts(roofPts)} fill="#0d192e" stroke="#00c6e0" strokeWidth={1} />
+              <polygon points={pts([roofPts[0], roofPts[1], iso(bldW, 0, stories * STORY_H + ridgeH), iso(0, 0, stories * STORY_H + ridgeH)])} fill="#0a1525" stroke="#00c6e066" strokeWidth={0.7} />
+            </>
+          ) : (
+            <>
+              <polygon points={pts([roofPts[0],roofPts[1],iso(bldW/2,0,stories*STORY_H+ridgeH)])} fill="#0d192e" stroke="#00c6e0" strokeWidth={1} />
+              <polygon points={pts([roofPts[1],roofPts[2],iso(bldW,bldD/2,stories*STORY_H+ridgeH),iso(bldW/2,0,stories*STORY_H+ridgeH)])} fill="#091220" stroke="#00c6e066" strokeWidth={0.7} />
+            </>
+          )}
+          {/* Balcony */}
+          {hasBalcony && stories > 1 && (() => {
+            const bz = STORY_H;
+            const bal = [iso(-1,0,bz),iso(0,0,bz),iso(0,bldD*0.4,bz),iso(-1,bldD*0.4,bz)];
+            return <polygon points={pts(bal)} fill="none" stroke="#06b6d4" strokeWidth={1} strokeDasharray="3,2" />;
+          })()}
+          {/* Garage */}
+          {hasGarage && (() => {
+            const gar = [iso(0,bldD,0),iso(bldW*0.4,bldD,0),iso(bldW*0.4,bldD,STORY_H*0.8),iso(0,bldD,STORY_H*0.8)];
+            return <polygon points={pts(gar)} fill="#57534e22" stroke="#57534e" strokeWidth={0.8} />;
+          })()}
+          {/* Dim label */}
+          {(() => { const p0=iso(0,0,0), p1=iso(bldW,0,0); return (
+            <>
+              <line x1={p0.x} y1={p0.y+12} x2={p1.x} y2={p1.y+12} stroke="#445566" strokeWidth={0.8}/>
+              <text x={(p0.x+p1.x)/2} y={(p0.y+p1.y)/2+22} textAnchor="middle" fill="#445566" fontSize={8} fontFamily="monospace">{(bldW*0.9).toFixed(1)} m</text>
+            </>
+          ); })()}
+          {/* Hint */}
+          <text x={W/2} y={H-8} textAnchor="middle" fill="#1e2a3a" fontSize={9} fontFamily="monospace">← drag to rotate →</text>
+        </svg>
+      </div>
+
+      {/* ── AI Realistic Isometric Render ── */}
+      <AiDrawing
+        title={`ISOMETRIC 3D VIEW — ${styleTag?.toUpperCase() || "DESIGN"} · AI RENDER`}
+        subtitle={`Option ${optionId} · ${stories} Floors · ${totalArea}m²`}
+        prompt={aiPrompt}
+        seed={rooms.length + 10 + optSeed(optionId) + 6}
+        startDelay={5000}
+      />
+    </>
+  );
+}
+
+// ── Real Construction - Finished House Visual ─────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function RealConstructionView({ rooms, stories, styleTag, startDelay, optionId }: { rooms: Room[]; stories: number; styleTag: string; startDelay?: number; optionId: string }) {
+  const totalArea = rooms.reduce((s, r) => s + r.area, 0);
+  return (
+    <AiDrawing
+      title="REAL CONSTRUCTION — FINISHED HOUSE"
+      subtitle={`Option ${optionId} · Photorealistic Render`}
+      prompt={`Photorealistic exterior render of a ${stories}-story ${styleTag} style house, total area ${totalArea}m², beautiful landscaping with mature trees, cinematic golden-hour lighting, 8K resolution, architectural photography, option ${optionId}`}
+      seed={rooms.length + 20 + optSeed(optionId) + 7}
+      startDelay={startDelay}
+    />
+  );
+}
+
+// ── Final Presentation ────────────────────────────────────────────────────────
+function FinalPresentation({ rooms, stories, styleTag, option, startDelay }: { rooms: Room[]; stories: number; styleTag: string; option: Option; startDelay?: number }) {
+  const totalArea = rooms.reduce((s, r) => s + r.area, 0);
+  const floorRooms = (floor: number) => rooms.filter(r => r.floor === floor);
+  const optionId = option.id;
 
   return (
     <div style={{ background: "#0a0f1a", border: "2px solid #22c55e44", borderRadius: 14, overflow: "hidden" }}>
@@ -203,26 +500,23 @@ function FinalPresentation({ rooms, stories, styleTag, option }: { rooms: Room[]
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
         {/* Left: Exterior Hero Render */}
-        <div style={{ background: "linear-gradient(135deg, #87ceeb 0%, #e0f6ff 50%, #f5f5dc 100%)", position: "relative", minHeight: 400 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img 
-            src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=80" 
-            alt="Final Photorealistic Render"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", minHeight: 400 }}
-          />
-        </div>
+        <AiDrawing
+          title="FINAL PRESENTATION"
+          subtitle="Photorealistic Render"
+          prompt={`Ultra-realistic photorealistic exterior render of a ${stories}-story ${styleTag} style house, total ${totalArea}m², stunning architectural photography, luxury landscaping, dramatic sky, 8K, award-winning architectural photography, option ${optionId}`}
+          seed={rooms.length + 30 + (optionId === "A" ? 100 : optionId === "B" ? 200 : 300)}
+          startDelay={startDelay}
+        />
 
-        {/* Right: Floor Plans */}
+        {/* Right: Floor Plans summary */}
         <div style={{ background: "#f5f5f5", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: "#2c3e50", letterSpacing: 1 }}>FLOOR PLANS</div>
-          
+
           {/* Ground Floor */}
           <div style={{ background: "#fff", borderRadius: 8, padding: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 8 }}>GROUND FLOOR (F1) — {floorRooms(1).reduce((s, r) => s + r.area, 0)}m²</div>
             <svg width="100%" height="140" viewBox="0 0 300 140">
-              {/* Simple floor plan representation */}
               <rect x="10" y="10" width="280" height="120" fill="#fafafa" stroke="#333" strokeWidth="2" />
-              {/* Rooms */}
               {floorRooms(1).slice(0, 4).map((r, i) => {
                 const x = 15 + (i % 2) * 135;
                 const y = 15 + Math.floor(i / 2) * 55;
@@ -238,7 +532,7 @@ function FinalPresentation({ rooms, stories, styleTag, option }: { rooms: Room[]
             </svg>
           </div>
 
-          {/* First Floor */}
+          {/* Upper Floors */}
           {stories > 1 && (
             <div style={{ background: "#fff", borderRadius: 8, padding: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 8 }}>FIRST FLOOR (F2) — {floorRooms(2).reduce((s, r) => s + r.area, 0)}m²</div>
@@ -250,9 +544,8 @@ function FinalPresentation({ rooms, stories, styleTag, option }: { rooms: Room[]
                   return (
                     <g key={i}>
                       <rect x={x} y={15} width={w - 10} height="70" fill={roomFill(r.name)} stroke={roomStroke(r.name)} strokeWidth="1" />
-                      <text x={x + (w-10)/2} y={45} textAnchor="middle" fill="#333" fontSize="8" fontWeight="bold">{r.name.length > 10 ? r.name.slice(0, 9) + "…" : r.name}</text>
-                      <text x={x + (w-10)/2} y={60} textAnchor="middle" fill="#666" fontSize="7">{r.area}m²</text>
-                      <text x={x + 8} y={25} fill="#333" fontSize="8" fontWeight="bold">0{i + 6}</text>
+                      <text x={x + (w - 10) / 2} y={45} textAnchor="middle" fill="#333" fontSize="8" fontWeight="bold">{r.name.length > 10 ? r.name.slice(0, 9) + "…" : r.name}</text>
+                      <text x={x + (w - 10) / 2} y={60} textAnchor="middle" fill="#666" fontSize="7">{r.area}m²</text>
                     </g>
                   );
                 })}
@@ -267,51 +560,9 @@ function FinalPresentation({ rooms, stories, styleTag, option }: { rooms: Room[]
           </div>
         </div>
       </div>
-
-      {/* Bottom: Interior Gallery */}
-      <div style={{ background: "#0d1420", padding: "20px", borderTop: "1px solid #1e293b" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", marginBottom: 12, letterSpacing: 1 }}>INTERIOR SPACES</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-          {interiorRooms.length > 0 ? interiorRooms.map((room, i) => (
-            <div key={i} style={{ background: room.color, borderRadius: 8, padding: "12px", aspectRatio: "4/3", display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative", overflow: "hidden" }}>
-              {/* Room pattern */}
-              <svg width="100%" height="100%" style={{ position: "absolute", top: 0, left: 0, opacity: 0.3 }}>
-                <pattern id={`pat${i}`} width="20" height="20" patternUnits="userSpaceOnUse">
-                  <rect width="20" height="20" fill="none" />
-                  <line x1="0" y1="10" x2="20" y2="10" stroke="#fff" strokeWidth="0.5" />
-                  <line x1="10" y1="0" x2="10" y2="20" stroke="#fff" strokeWidth="0.5" />
-                </pattern>
-                <rect width="100%" height="100%" fill={`url(#pat${i})`} />
-              </svg>
-              <div style={{ fontSize: 28, zIndex: 1 }}>{room.icon}</div>
-              <div style={{ zIndex: 1 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#2c3e50", textTransform: "uppercase" }}>{room.name}</div>
-                <div style={{ fontSize: 9, color: "#555" }}>{rooms.find(r => r.name.toLowerCase().includes(room.name.toLowerCase()))?.area || "--"}m²</div>
-              </div>
-            </div>
-          )) : (
-            // Default rooms if no matches
-            ["Living", "Dining", "Kitchen", "Bedroom"].map((name, i) => (
-              <div key={i} style={{ background: ["#c9a87c", "#a08060", "#d4b896", "#b8a090"][i], borderRadius: 8, padding: "12px", aspectRatio: "4/3", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                <div style={{ fontSize: 28 }}>{["🛋️", "🍽️", "👨‍🍳", "🛏️"][i]}</div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#2c3e50", textTransform: "uppercase" }}>{name}</div>
-                  <div style={{ fontSize: 9, color: "#555" }}>{rooms[i]?.area || "--"}m²</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
     </div>
   );
 }
-
-// ── Section Cut A-A ──────────────────────────────────────────────────────────
-function SectionCut({ rooms, stories }: { rooms: Room[]; stories: number }) {
-  return <AiDrawing title="SECTION CUT — A-A" subtitle="Longitudinal section · AI Generated" prompt={`Architectural section cut drawing of a ${stories} story house, showing internal rooms, highly detailed cad style drawing, white background`} seed={rooms.length + 15} />
-}
-
 
 function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree?: boolean }) {
 
@@ -402,6 +653,29 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
   }
 
   const activeOpt = result?.options?.find((o) => o.id === selectedOption);
+
+  useEffect(() => {
+    if (activeOpt) {
+      // 1. Dynamically sync the stories based on the rooms generated for this option
+      const maxFloor = Math.max(1, ...activeOpt.rooms.map(r => r.floor));
+      setStories(maxFloor.toString());
+      
+      // 2. Dynamically sync the style dropdown based on the AI's style tag
+      const lower = activeOpt.styleTag?.toLowerCase() || "";
+      if (lower.includes("traditional") || lower.includes("classic")) setStyle("Traditional");
+      else if (lower.includes("modern") || lower.includes("minimalist")) setStyle("Modern");
+      else if (lower.includes("contemporary")) setStyle("Contemporary");
+      else setStyle("Mixed");
+
+      // 3. Dynamically sync the plot size based on estimated area (approximate)
+      if (activeOpt.estimatedArea) {
+        if (activeOpt.estimatedArea < 250) setPlotSize("200m²");
+        else if (activeOpt.estimatedArea < 450) setPlotSize("400m²");
+        else if (activeOpt.estimatedArea < 650) setPlotSize("600m²");
+        else setPlotSize("800m²+");
+      }
+    }
+  }, [activeOpt]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -583,7 +857,7 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
 
                 {/* ── Scrollable zoom canvas ── */}
                 <div style={{ overflowX: "auto", overflowY: "visible", flex: 1, minHeight: 0 }}>
-                <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 24, minWidth: zoom > 1 ? `${zoom * 100}%` : "100%" }}>
+                <div key={selectedOption} style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 24, minWidth: zoom > 1 ? `${zoom * 100}%` : "100%" }}>
 
                   {/* ── AI Summary strip ── */}
                   <div style={{ background: "rgba(0,198,224,0.07)", border: "1px solid rgba(0,198,224,0.2)", borderRadius: 10, padding: "12px 16px", display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -601,33 +875,33 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
 
                   {/* ── Floor Plans (one per floor) ── */}
                   {Array.from(new Set(activeOpt.rooms.map(r => r.floor))).sort().map(fl => (
-                    <ArchFloorPlan key={fl} rooms={activeOpt.rooms} floor={fl}
+                    <ArchFloorPlan key={fl} rooms={activeOpt.rooms} floor={fl} optionId={activeOpt.id}
                       label={fl === 1 ? "Ground Floor" : fl === 2 ? "First Floor" : fl === 3 ? "Second Floor" : `Floor ${fl}`} />
                   ))}
 
                   {/* ── Front Elevation ── */}
-                  <FrontElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} />
+                  <FrontElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} optionId={activeOpt.id} />
 
                   {/* ── Section Cut A-A ── */}
-                  <SectionCut rooms={activeOpt.rooms} stories={parseInt(stories) || 2} />
+                  <SectionCut rooms={activeOpt.rooms} stories={parseInt(stories) || 2} optionId={activeOpt.id} />
 
                   {/* ── Side Elevations (Left + Right) ── */}
                   <div className="grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                    <SideElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} side="LEFT" />
-                    <SideElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} side="RIGHT" />
+                    <SideElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} side="LEFT" optionId={activeOpt.id} />
+                    <SideElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} side="RIGHT" optionId={activeOpt.id} />
                   </div>
 
                   {/* ── Back / Rear Elevation ── */}
-                  <BackElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} />
+                  <BackElevation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} optionId={activeOpt.id} />
 
                   {/* ── 3D Isometric View ── */}
-                  <Iso3DView rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} />
+                  <Iso3DView rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} optionId={activeOpt.id} />
 
                   {/* ── Real Construction - Finished House Visual ── */}
-                  <RealConstructionView rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} />
+                  <RealConstructionView rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} startDelay={21000} optionId={activeOpt.id} />
 
                   {/* ── Final Presentation ── */}
-                  <FinalPresentation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} option={activeOpt} />
+                  <FinalPresentation rooms={activeOpt.rooms} stories={parseInt(stories) || 2} styleTag={activeOpt.styleTag} option={activeOpt} startDelay={24000} />
 
                   {/* ── Bottom info row: features + room schedule + cost ── */}
                   <div className="grid-3col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
