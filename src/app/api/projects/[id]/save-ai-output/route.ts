@@ -26,7 +26,7 @@ export async function POST(
     if (existing) {
       await prisma.aiOutput.update({
         where: { id: existing.id },
-        data: { outputJson, updatedAt: new Date() },
+        data: { outputJson },
       });
     } else {
       await prisma.aiOutput.create({

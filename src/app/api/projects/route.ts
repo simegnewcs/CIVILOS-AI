@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     // AI_GENERATION → AWAITING_HUMAN (AI has run, awaiting Prompter review)
     // PROMPTER_REVIEW → PENDING (next step)
     // all others → PENDING
-    function initialStageStatus(stageType: string, idx: number): string {
+    function initialStageStatus(stageType: string, idx: number): any {
       if (stageType === "CLIENT_BRIEF") return "APPROVED";
       if (stageType === "AI_GENERATION") return "AWAITING_HUMAN";
       if (stageType === "PROMPTER_REVIEW") return "PENDING";

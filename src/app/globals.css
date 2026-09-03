@@ -246,8 +246,5 @@ body {
     page-break-inside: avoid;
   }
   
-  /* Hide the right form panel in studio entirely on print */
-  .md\\:flex.flex-col.relative {
-    display: none !important;
-  }
+
 }

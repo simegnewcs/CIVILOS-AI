@@ -5,12 +5,11 @@ const prisma = new PrismaClient();
 
 const STAGE_ORDER = [
   "CLIENT_BRIEF",
-  "AI_ARCHITECT",
-  "HUMAN_ARCHITECT",
-  "AI_STRUCTURAL",
-  "HUMAN_STRUCTURAL",
-  "AI_COST",
-  "HUMAN_QS",
+  "AI_GENERATION",
+  "PROMPTER_REVIEW",
+  "ARCHITECT_REVIEW",
+  "STRUCTURAL_REVIEW",
+  "QS_REVIEW",
   "PM_APPROVAL",
   "FINAL_DELIVERY",
 ] as const;
@@ -73,10 +72,10 @@ async function main() {
             : idx === 3 ? "AWAITING_HUMAN"
             : "PENDING",
           assigneeId:
-            idx === 2 ? architect.id
-            : idx === 3 || idx === 4 ? engineer.id
-            : idx === 5 || idx === 6 ? qs.id
-            : idx === 7 ? pm.id
+            idx === 3 ? architect.id
+            : idx === 4 ? engineer.id
+            : idx === 5 ? qs.id
+            : idx === 6 ? pm.id
             : null,
           completedAt: idx < 3 ? new Date() : null,
           startedAt: idx <= 3 ? new Date() : null,
@@ -122,10 +121,10 @@ async function main() {
           stageOrder: idx,
           status: idx < 5 ? "APPROVED" : idx === 5 ? "AWAITING_HUMAN" : "PENDING",
           assigneeId:
-            idx === 2 ? architect.id
-            : idx === 3 || idx === 4 ? engineer.id
-            : idx === 5 || idx === 6 ? qs.id
-            : idx === 7 ? pm.id
+            idx === 3 ? architect.id
+            : idx === 4 ? engineer.id
+            : idx === 5 ? qs.id
+            : idx === 6 ? pm.id
             : null,
           completedAt: idx < 5 ? new Date() : null,
           startedAt: idx <= 5 ? new Date() : null,

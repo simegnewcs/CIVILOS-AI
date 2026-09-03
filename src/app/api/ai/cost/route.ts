@@ -119,7 +119,7 @@ Return JSON only with this structure:
       });
 
       await prisma.workflowStage.updateMany({
-        where: { projectId, stageType: "AI_COST" },
+        where: { projectId, stageType: "QS_REVIEW" },
         data: { status: "AWAITING_HUMAN", aiOutput: rawContent, startedAt: new Date() },
       });
     }

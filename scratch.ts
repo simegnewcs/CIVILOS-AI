@@ -1,1 +1,0 @@
-import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); async function main() { const stages = await prisma.workflowStage.findMany({ where: { projectId: 'cmtkpzje2003evt5ha07zs5bl' }, orderBy: { stageOrder: 'asc' } }); console.log(stages.map(s = + ' - + s.status).join('\n')); } main().finally(() = 
