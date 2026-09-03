@@ -27,8 +27,8 @@ export default async function DashboardPage() {
   // Prisma returns dates as Date objects, we need to serialize them to pass to Client Component
   const serializedProjects = projects.map((p) => ({
     ...p,
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
+    createdAt: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
+    updatedAt: p.updatedAt ? p.updatedAt.toISOString() : new Date().toISOString(),
   }));
 
   const userName = session.name?.split(" ")[0] || "User";

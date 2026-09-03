@@ -144,7 +144,9 @@ export default function DashboardClient({ initialProjects, userName }: Dashboard
   }
 
   const filtered = projects.filter((p) => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.clientName.toLowerCase().includes(search.toLowerCase());
+    const safeName = p.name || "";
+    const safeClient = p.clientName || "";
+    const matchSearch = safeName.toLowerCase().includes(search.toLowerCase()) || safeClient.toLowerCase().includes(search.toLowerCase());
     return matchSearch;
   });
 
