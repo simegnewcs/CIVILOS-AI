@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      include: { aiOutputs: { where: { stageType: "AI_ARCHITECT" } } },
+      include: { aiOutputs: { where: { stageType: "AI_GENERATION" } } },
     });
 
     if (!project) {
@@ -88,6 +88,28 @@ export async function POST(req: NextRequest) {
     await prisma.aiOutput.update({
       where: { id: aiOutput.id },
       data: { outputJson: JSON.stringify(parsedJson) },
+    });
+
+    // ✅ Mark AI_GENERATION stage as APPROVED (Done) — 3D render has been generated
+    await prisma.workflowStage.updateMany({
+      where: { projectId, stageType: "AI_GENERATION" },
+      data: { status: "APPROVED", completedAt: new Date() },
+    });
+
+    // ▶️ Advance PROMPTER_REVIEW to AWAITING_HUMAN (it is now the active stage)
+    await prisma.workflowStage.updateMany({
+      where: { projectId, stageType: "PROMPTER_REVIEW" },
+      data: { status: "AWAITING_HUMAN", startedAt: new Date() },
+    });
+
+    // 📊 Recalculate project progress
+    const allStages = await prisma.workflowStage.findMany({ where: { projectId } });
+    const done = allStages.filter((s) => s.status === "APPROVED").length;
+    const progress = Math.round((done / allStages.length) * 100);
+    const allDone = done === allStages.length;
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { progress, status: allDone ? "COMPLETED" : "IN_PROGRESS" },
     });
 
     return NextResponse.json({ imageBase64 });

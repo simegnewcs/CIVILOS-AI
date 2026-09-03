@@ -158,3 +158,96 @@ body {
   overflow-y: auto;
   overflow-x: clip;
 }
+
+/* ── Print Media Queries ────────────────────────────────────────────── */
+@media print {
+  /* Reset html/body to allow full continuous scrolling */
+  html, body {
+    height: auto !important;
+    width: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Aggressively remove all scrollbars and height constraints from all divs */
+  * {
+    overflow: visible !important;
+    overflow-y: visible !important;
+    overflow-x: visible !important;
+  }
+
+  /* Any main wrapper divs (often with flex and h-screen) should be blocks with auto height */
+  body > div, 
+  .page-with-sidebar, 
+  .main-content, 
+  .main-scroll, 
+  .flex, 
+  .h-screen, 
+  .overflow-hidden, 
+  .overflow-y-auto {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    position: static !important;
+    width: auto !important;
+  }
+  
+  /* Let inline flex styles on structural divs be overridden to block */
+  div[style*="overflow: hidden"],
+  div[style*="overflowY: auto"],
+  div[style*="flex: 1"] {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Hide UI elements unnecessary for printing */
+  .sidebar, .zoom-bar, button, select, input, textarea, .hide-print {
+    display: none !important;
+  }
+  
+  /* In dark mode we force colors to light mode variables if possible,
+     but we also just set text to black globally */
+  * {
+    color: #000000 !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* Ensure backgrounds of cards and images print correctly */
+  div {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Avoid breaking inside important blocks */
+  .print-avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  
+  /* SVG & Image fixes */
+  .drawing-scroll {
+    overflow: visible !important;
+  }
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+  
+  /* Hide the right form panel in studio entirely on print */
+  .md\\:flex.flex-col.relative {
+    display: none !important;
+  }
+}

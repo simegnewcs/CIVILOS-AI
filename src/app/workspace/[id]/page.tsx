@@ -21,13 +21,13 @@ interface Project {
 }
 
 const STAGE_LABEL: Record<string, string> = {
-  CLIENT_BRIEF: "Client Brief", AI_ARCHITECT: "AI Architect", HUMAN_ARCHITECT: "Human Architect",
-  AI_STRUCTURAL: "AI Structural", HUMAN_STRUCTURAL: "Engineer Review", AI_COST: "AI Cost Est.",
-  HUMAN_QS: "QS Review", PM_APPROVAL: "PM Approval", FINAL_DELIVERY: "Delivered",
+  CLIENT_BRIEF: "Client Brief", AI_GENERATION: "AI Generation", PROMPTER_REVIEW: "Prompter Review",
+  ARCHITECT_REVIEW: "Architect Review", STRUCTURAL_REVIEW: "Engineer Review", QS_REVIEW: "QS Review",
+  PM_APPROVAL: "PM Approval", FINAL_DELIVERY: "Delivered",
 };
 const STAGE_ICON: Record<string, string> = {
-  CLIENT_BRIEF: "👤", AI_ARCHITECT: "🤖", HUMAN_ARCHITECT: "✏️", AI_STRUCTURAL: "🏗️",
-  HUMAN_STRUCTURAL: "🔩", AI_COST: "💰", HUMAN_QS: "📊", PM_APPROVAL: "✅", FINAL_DELIVERY: "🎉",
+  CLIENT_BRIEF: "👤", AI_GENERATION: "🤖", PROMPTER_REVIEW: "👀", ARCHITECT_REVIEW: "✏️",
+  STRUCTURAL_REVIEW: "🔩", QS_REVIEW: "📊", PM_APPROVAL: "✅", FINAL_DELIVERY: "🎉",
 };
 const STATUS_COLOR: Record<string, string> = {
   IN_PROGRESS: "#f59e0b", AWAITING_REVIEW: "#00c6e0", COMPLETED: "#22c55e",
@@ -36,28 +36,26 @@ const STATUS_COLOR: Record<string, string> = {
 
 // Who is responsible for each stage
 const STAGE_ROLE: Record<string, string> = {
-  CLIENT_BRIEF: "Client",
-  AI_ARCHITECT: "AI Engine",
-  HUMAN_ARCHITECT: "Licensed Architect",
-  AI_STRUCTURAL: "AI Engine",
-  HUMAN_STRUCTURAL: "Structural Engineer",
-  AI_COST: "AI Engine",
-  HUMAN_QS: "Quantity Surveyor",
+  CLIENT_BRIEF: "Client / Prompter",
+  AI_GENERATION: "AI Engine",
+  PROMPTER_REVIEW: "Client / Prompter",
+  ARCHITECT_REVIEW: "Human Architect",
+  STRUCTURAL_REVIEW: "Structural Engineer",
+  QS_REVIEW: "Quantity Surveyor",
   PM_APPROVAL: "Project Manager",
   FINAL_DELIVERY: "Project Manager",
 };
 
 // What action is expected at each stage
 const STAGE_ACTION: Record<string, string> = {
-  CLIENT_BRIEF: "Client submits project brief, location, plot size and requirements.",
-  AI_ARCHITECT: "AI generates 3 concept floor plan options with cost ranges.",
-  HUMAN_ARCHITECT: "Licensed architect reviews AI concepts, selects or modifies design, and approves.",
-  AI_STRUCTURAL: "AI analyses structural integrity, beam spans, column grid and flags risks.",
-  HUMAN_STRUCTURAL: "Structural engineer reviews AI analysis, stamps calculations, approves or requests changes.",
-  AI_COST: "AI generates full Bill of Quantities (BOQ) based on approved structural design.",
-  HUMAN_QS: "Quantity surveyor verifies BOQ, adjusts market rates, approves cost estimate.",
-  PM_APPROVAL: "Project manager reviews full package — design, structure, cost — and gives final sign-off.",
-  FINAL_DELIVERY: "Complete certified package delivered to client.",
+  CLIENT_BRIEF: "Client / Prompter writes the complete brief into the system based on client's idea.",
+  AI_GENERATION: "AI Architect, Structural & Cost agents generate initial project output.",
+  PROMPTER_REVIEW: "Prompter reviews and edits before sending to Architect.",
+  ARCHITECT_REVIEW: "Human Architect reviews AI generated design, reorganizes layouts, and approves architectural stage.",
+  STRUCTURAL_REVIEW: "Human Structural Engineer reviews AI analysis, verifies safety, and gives structural approval.",
+  QS_REVIEW: "Quantity Surveyor (QS) reviews BOQ, materials, costs, and approves the budget.",
+  PM_APPROVAL: "Project Manager reviews the entire project history, risks, and gives final approval.",
+  FINAL_DELIVERY: "Final project delivery documents are made available to the client.",
 };
 
 function stageUiStatus(s: Stage) {
@@ -112,6 +110,16 @@ function FloorPlanSVG({ rooms }: { rooms: Room[] }) {
     </svg>
   );
 }
+const STAGE_AUTH_ROLE: Record<string, string[]> = {
+  CLIENT_BRIEF: ["CLIENT", "ADMIN", "PROMPTER"],
+  AI_GENERATION: [],
+  PROMPTER_REVIEW: ["CLIENT", "ADMIN", "PROMPTER"],
+  ARCHITECT_REVIEW: ["ARCHITECT", "ADMIN"],
+  STRUCTURAL_REVIEW: ["STRUCTURAL_ENGINEER", "ADMIN"],
+  QS_REVIEW: ["QUANTITY_SURVEYOR", "ADMIN"],
+  PM_APPROVAL: ["PROJECT_MANAGER", "ADMIN"],
+  FINAL_DELIVERY: ["CLIENT", "ADMIN", "PROMPTER"],
+};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function WorkspacePage({ params }: { params: Promise<{ id: string }> }) {
@@ -119,6 +127,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   const router = useRouter();
 
   const [project, setProject] = useState<Project | null>(null);
+  const [me, setMe] = useState<{ id: string; name: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeStageId, setActiveStageId] = useState<string>("");
   const [view, setView] = useState<"stage" | "floor" | "info">("stage");
@@ -127,6 +136,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   const [actionMsg, setActionMsg] = useState("");
   const [selectedOption, setSelectedOption] = useState("A");
   const [generatingImage, setGeneratingImage] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => { if (d?.user) setMe(d.user); });
+  }, []);
 
   const fetchProject = useCallback(async () => {
     setLoading(true);
@@ -149,6 +162,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
       if (res.status === 404) { router.push("/dashboard"); return; }
       const data = await res.json();
       setProject(data.project);
+      // Remember this project so sidebar links directly next time (no /demo roundtrip)
+      if (typeof window !== "undefined") {
+        localStorage.setItem("lastWorkspaceId", id);
+      }
     } finally { setLoading(false); }
   }, [id, router]);
 
@@ -167,7 +184,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   let aiRooms: Room[] = [];
   let aiOptions: { id: string; label: string; styleTag: string }[] = [];
   let floorPlanImage = "";
-  const aiStage = project?.stages.find((s) => s.stageType === "AI_ARCHITECT" && s.aiOutput);
+  const aiStage = project?.stages.find((s) => s.stageType === "AI_GENERATION" && s.aiOutput);
   if (aiStage?.aiOutput) {
     try {
       const parsed = JSON.parse(aiStage.aiOutput);
@@ -514,7 +531,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
                     </div>
 
                     {/* Action buttons for active human stages */}
-                    {ui === "active" && !isAiStage && (
+                    {ui === "active" && !isAiStage && me && STAGE_AUTH_ROLE[activeStage.stageType]?.includes(me.role) && (
                       <div style={{ background: "var(--bg-card)", border: "1px solid rgba(0,198,224,0.25)", borderRadius: 12, padding: 16 }}>
                         <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--cyan)" }}>Your Decision</div>
                         <textarea value={comment} onChange={(e) => setComment(e.target.value)}
@@ -563,7 +580,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
                 );
               })()}
 
-              {/* ── FLOOR PLAN ── */}
+              {/* ── 3D RENDER / FULL AI STUDIO LINK ── */}
               {view === "floor" && (
                 <div className="flex-1 flex flex-col items-center justify-center p-6 relative" style={{ minHeight: "100%", background: "#080f18" }}>
                   <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.08 }}>
@@ -573,43 +590,17 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
                     <rect width="100%" height="100%" fill="url(#grid)" />
                   </svg>
                   <div style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    {floorPlanImage ? (
-                      <div className="relative border border-cyan/40 rounded-lg overflow-hidden bg-black shadow-2xl shadow-cyan/20">
-                        <img src={`data:image/jpeg;base64,${floorPlanImage}`} alt="Generated Floor Plan" style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain" }} />
-                        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, padding: 8, background: "var(--bg-panel)", borderTop: "1px solid var(--border)" }}>
-                          AI Generated 3D Photorealistic Render (Gemini API)
-                        </div>
-                        <div className="flex justify-center p-3" style={{ background: "var(--bg-panel)" }}>
-                          <button 
-                            onClick={generateFloorPlanImage} 
-                            disabled={generatingImage}
-                            style={{ background: "transparent", color: "var(--cyan)", border: "1px solid var(--cyan)", borderRadius: 8, padding: "6px 14px", fontWeight: 600, fontSize: 12, cursor: generatingImage ? "not-allowed" : "pointer" }}
-                          >
-                            {generatingImage ? "✨ Rendering..." : "🔄 Regenerate 3D Photo"}
-                          </button>
-                        </div>
-                      </div>
-                    ) : aiRooms.length > 0 ? (
-                      <div className="flex flex-col items-center">
-                        <FloorPlanSVG rooms={aiRooms} />
-                        <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11, marginTop: 8, marginBottom: 16 }}>Abstract SVG Floor Plan Demo</div>
-                        <button 
-                          onClick={generateFloorPlanImage} 
-                          disabled={generatingImage}
-                          style={{ background: "var(--cyan)", color: "#000", border: "none", borderRadius: 8, padding: "8px 20px", fontWeight: 700, fontSize: 13, cursor: generatingImage ? "not-allowed" : "pointer", boxShadow: "0 4px 12px rgba(0, 198, 224, 0.3)" }}
-                        >
-                          {generatingImage ? "✨ Rendering Photorealistic 3D Photo..." : "✨ Generate Photorealistic 3D Photo"}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-center" style={{ color: "var(--text-muted)" }}>
-                        <div className="text-5xl mb-3">🏗️</div>
-                        <div className="text-sm mb-2">No AI design generated yet</div>
-                        <Link href={`/studio?projectId=${project.id}`} style={{ color: "var(--cyan)", fontSize: 13, fontWeight: 600 }}>
-                          → Open AI Studio to generate concepts
-                        </Link>
-                      </div>
-                    )}
+                    <div style={{ fontSize: 64, marginBottom: 16 }}>🏙️</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: "var(--cyan)", marginBottom: 8 }}>AI Studio Workspace</div>
+                    <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 13, marginBottom: 32, maxWidth: 400 }}>
+                      All photorealistic 3D renders, elevations, section cuts, and AI architectural drawings are now generated and managed in the full AI Studio.
+                    </div>
+                    <Link 
+                      href={`/studio?projectId=${project?.id}`}
+                      style={{ background: "var(--cyan)", color: "#000", border: "none", borderRadius: 8, padding: "12px 32px", fontWeight: 700, fontSize: 15, cursor: "pointer", textDecoration: "none", display: "inline-block", boxShadow: "0 4px 20px rgba(0, 198, 224, 0.4)" }}
+                    >
+                      🤖 Open in Full AI Studio
+                    </Link>
                   </div>
                 </div>
               )}

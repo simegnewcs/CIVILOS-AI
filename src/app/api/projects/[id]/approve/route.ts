@@ -60,7 +60,7 @@ export async function POST(
     if (currentIdx !== -1 && currentIdx + 1 < stages.length) {
       await prisma.workflowStage.update({
         where: { id: stages[currentIdx + 1].id },
-        data: { status: "PENDING" },
+        data: { status: "AWAITING_HUMAN", startedAt: new Date() },
       });
     }
 

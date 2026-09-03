@@ -582,6 +582,30 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
         if (data.project.description) setPrompt(data.project.description);
         if (data.project.projectType) setBuildingType(data.project.projectType);
         if (data.project.plotSize) setPlotSize(data.project.plotSize);
+        
+        // If the project already has an AI_GENERATION output, load it directly
+        const aiOutput = data.project.aiOutputs?.find((o: any) => o.stageType === "AI_GENERATION");
+        if (aiOutput && aiOutput.outputJson) {
+          try {
+            const parsed = JSON.parse(aiOutput.outputJson);
+            setResult(parsed);
+            setSelectedOption("A");
+          } catch (e) {
+            console.error("Failed to parse existing AI output");
+          }
+        } else {
+          // Alternatively check if the stage has it (fallback)
+          const aiStage = data.project.stages?.find((s: any) => s.stageType === "AI_GENERATION");
+          if (aiStage && aiStage.aiOutput) {
+            try {
+              const parsed = JSON.parse(aiStage.aiOutput);
+              setResult(parsed);
+              setSelectedOption("A");
+            } catch (e) {
+              console.error("Failed to parse existing AI output from stage");
+            }
+          }
+        }
       }
     });
   }, [projectId]);
@@ -645,6 +669,20 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
       setTokensUsed(data.tokensUsed || 0);
       setIsMock(!!data.mock);
       setSelectedOption("A");
+
+      // ✅ If linked to a project, save the AI output to DB and advance the stage
+      if (projectId && !tryFree) {
+        try {
+          await fetch(`/api/projects/${projectId}/save-ai-output`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ outputJson: JSON.stringify(data.result), stageType: "AI_GENERATION" }),
+          });
+        } catch {
+          // Non-blocking — UI already has the result
+          console.warn("Could not save AI output to project DB");
+        }
+      }
     } catch {
       setError("Network error — check your connection");
     } finally {
@@ -736,8 +774,17 @@ function StudioInner({ projectId, tryFree }: { projectId: string | null; tryFree
           >
             {mobileFormOpen ? "📋 View Drawings" : "⚙️ Configure"}
           </button>
-          <div style={{ background: apiKeyMissing ? "#ef444422" : "#22c55e22", border: `1px solid ${apiKeyMissing ? "#ef444444" : "#22c55e44"}`, color: apiKeyMissing ? "#ef4444" : "#22c55e", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>
-            {apiKeyMissing ? "⚠ No API Key" : "🟢civilOS.Ready"}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="hide-print"
+              style={{ background: "var(--bg-hover)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
+            >
+              🖨️ Print PDF
+            </button>
+            <div style={{ background: apiKeyMissing ? "#ef444422" : "#22c55e22", border: `1px solid ${apiKeyMissing ? "#ef444444" : "#22c55e44"}`, color: apiKeyMissing ? "#ef4444" : "#22c55e", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>
+              {apiKeyMissing ? "⚠ No API Key" : "🟢civilOS.Ready"}
+            </div>
           </div>
         </div>
 

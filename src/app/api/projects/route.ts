@@ -5,12 +5,11 @@ import { StageType, WorkflowMode } from "@prisma/client";
 
 const STAGE_ORDER: StageType[] = [
   "CLIENT_BRIEF",
-  "AI_ARCHITECT",
-  "HUMAN_ARCHITECT",
-  "AI_STRUCTURAL",
-  "HUMAN_STRUCTURAL",
-  "AI_COST",
-  "HUMAN_QS",
+  "AI_GENERATION",
+  "PROMPTER_REVIEW",
+  "ARCHITECT_REVIEW",
+  "STRUCTURAL_REVIEW",
+  "QS_REVIEW",
   "PM_APPROVAL",
   "FINAL_DELIVERY",
 ];
@@ -27,7 +26,6 @@ export async function GET(req: NextRequest) {
 
   const projects = await prisma.project.findMany({
     where: {
-      ownerId: session.userId,
       ...(status ? { status: status as never } : {}),
       ...(type ? { projectType: type } : {}),
     },
@@ -61,6 +59,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Determine initial status for each stage:
+    // CLIENT_BRIEF → APPROVED (brief was just submitted)
+    // AI_GENERATION → AWAITING_HUMAN (AI has run, awaiting Prompter review)
+    // PROMPTER_REVIEW → PENDING (next step)
+    // all others → PENDING
+    function initialStageStatus(stageType: string, idx: number): string {
+      if (stageType === "CLIENT_BRIEF") return "APPROVED";
+      if (stageType === "AI_GENERATION") return "AWAITING_HUMAN";
+      if (stageType === "PROMPTER_REVIEW") return "PENDING";
+      return "PENDING";
+    }
+
     let project = await prisma.project.create({
       data: {
         name,
@@ -71,11 +81,13 @@ export async function POST(req: NextRequest) {
         plotSize: plotSize || null,
         mode: (mode as WorkflowMode) || "CERTIFIED",
         ownerId: session.userId,
+        status: "IN_PROGRESS",
+        progress: Math.round((2 / STAGE_ORDER.length) * 100), // CLIENT_BRIEF + AI_GENERATION done
         stages: {
           create: STAGE_ORDER.map((stageType, idx) => ({
             stageType,
             stageOrder: idx,
-            status: idx === 0 ? "PENDING" : "PENDING",
+            status: initialStageStatus(stageType, idx),
           })),
         },
       },
@@ -95,17 +107,10 @@ export async function POST(req: NextRequest) {
         data: [
           {
             projectId: project.id,
-            stageType: "AI_ARCHITECT",
+            stageType: "AI_GENERATION",
             modelUsed: "gpt-4o-mock",
             promptUsed: "Mock Instant Generation",
-            outputJson: JSON.stringify(design),
-          },
-          {
-            projectId: project.id,
-            stageType: "AI_COST",
-            modelUsed: "gpt-4o-mock",
-            promptUsed: "Mock Instant Generation",
-            outputJson: JSON.stringify(cost),
+            outputJson: JSON.stringify({ design, cost }),
           },
         ],
       });
@@ -125,7 +130,7 @@ export async function POST(req: NextRequest) {
       // We set AI stages to APPROVED and HUMAN stages to SKIPPED, except final delivery which is APPROVED
       for (const stage of project.stages) {
         let newStatus = "APPROVED";
-        if (stage.stageType.startsWith("HUMAN_")) {
+        if (stage.stageType.endsWith("_REVIEW") || stage.stageType.endsWith("_APPROVAL")) {
           newStatus = "SKIPPED";
         }
         await prisma.workflowStage.update({

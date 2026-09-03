@@ -87,7 +87,7 @@ Return a JSON object with this exact structure:
       await prisma.aiOutput.create({
         data: {
           projectId,
-          stageType: "AI_ARCHITECT",
+          stageType: "AI_GENERATION",
           modelUsed: "gemini-2.5-flash",
           promptUsed: userPrompt,
           outputJson: rawContent,
@@ -95,8 +95,23 @@ Return a JSON object with this exact structure:
       });
 
       await prisma.workflowStage.updateMany({
-        where: { projectId, stageType: "AI_ARCHITECT" },
-        data: { status: "AWAITING_HUMAN", aiOutput: rawContent, startedAt: new Date() },
+        where: { projectId, stageType: "AI_GENERATION" },
+        data: { status: "APPROVED", aiOutput: rawContent, completedAt: new Date() },
+      });
+
+      await prisma.workflowStage.updateMany({
+        where: { projectId, stageType: "PROMPTER_REVIEW" },
+        data: { status: "AWAITING_HUMAN", startedAt: new Date() },
+      });
+
+      // 📊 Recalculate project progress
+      const allStages = await prisma.workflowStage.findMany({ where: { projectId } });
+      const done = allStages.filter((s) => s.status === "APPROVED").length;
+      const progress = Math.round((done / allStages.length) * 100);
+      const allDone = done === allStages.length;
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { progress, status: allDone ? "COMPLETED" : "IN_PROGRESS" },
       });
     }
 

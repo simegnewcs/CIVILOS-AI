@@ -62,8 +62,21 @@ export default function Sidebar({ active, tryFree }: SidebarProps) {
     }
   }
 
+  // Persist the last visited workspace in localStorage so sidebar links directly
+  useEffect(() => {
+    const match = pathname.match(/^\/workspace\/([^/]+)/);
+    if (match && match[1] !== "demo") {
+      localStorage.setItem("lastWorkspaceId", match[1]);
+    }
+  }, [pathname]);
+
   const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)/);
-  const workspaceHref = workspaceMatch ? `/workspace/${workspaceMatch[1]}` : "/workspace/demo";
+  const storedId = typeof window !== "undefined" ? localStorage.getItem("lastWorkspaceId") : null;
+  const workspaceHref = workspaceMatch
+    ? `/workspace/${workspaceMatch[1]}`
+    : storedId
+    ? `/workspace/${storedId}`
+    : "/workspace/demo";
   const navItems = NAV.map(item => item.label === "Workspace" ? { ...item, href: workspaceHref } : item);
 
   const sideW = collapsed ? 60 : 220;
